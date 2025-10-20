@@ -1,6 +1,18 @@
 <!-- Dev By 𝐤𝐤𝐢𝐫𝐫𝐮 | 𝐏𝐫𝐢𝐦𝐞𝐤𝐤𝐢𝐫𝐫𝐮-𝐒𝐭𝐨𝐫𝐞.𝐨𝐧𝐫𝐞𝐧𝐝𝐞𝐫.𝐜𝐨𝐦 |  | MMO Solution -->
 <?php
+// Dev By kk... | Primekkirru-Store.onrender.com | MMO Solution
 define("IN_SITE", true);
+
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+// AUTO PING MỖI 10 PHÚT - CHỐNG NGỦ HOST
+if (!isset($_SESSION['last_ping']) || time() - $_SESSION['last_ping'] > 600) {
+    $_SESSION['last_ping'] = time();
+    @file_get_contents("https://" . $_SERVER['HTTP_HOST'] . "/cron/ping.php");
+}
+
 
 
 require_once(__DIR__.'/libs/db.php');
