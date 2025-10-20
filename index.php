@@ -1,4 +1,4 @@
-<!-- Dev By CMSNT.CO | FB.COM/CMSNT.CO | ZALO.ME/0947838128 | MMO Solution -->
+<!-- Dev By 𝐤𝐤𝐢𝐫𝐫𝐮 | 𝐏𝐫𝐢𝐦𝐞𝐤𝐤𝐢𝐫𝐫𝐮-𝐒𝐭𝐨𝐫𝐞.𝐨𝐧𝐫𝐞𝐧𝐝𝐞𝐫.𝐜𝐨𝐦 |  | MMO Solution -->
 <?php
 define("IN_SITE", true);
 
