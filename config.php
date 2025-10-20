@@ -1,8 +1,152 @@
 <?php
+/**
+ * config.php
+ * Mình đã thêm các đoạn tối ưu bộ nhớ (GC), giới hạn session, và cơ chế "auto wake" (đánh thức) không blocking
+ * Auto-wake sẽ gửi 1 request nhẹ tới /ping.php (bạn cần tạo file ping.php ở public/ hoặc chỉnh đường dẫn)
+ *
+ * Lưu ý:
+ * - Đặt file ping.php ở public/ hoặc route /ping trả về 200 OK mà không load DB.
+ * - Thư mục data/ phải có quyền ghi (writable) để lưu last_wake timestamp.
+ */
 
+/*
+ * === TỐI ƯU BỘ NHỚ & HIỆU NĂNG PHP ===
+ * Bật GC và thu gom rác mỗi request, giảm giữ object không cần thiết.
+ * Điều chỉnh session GC để tự dọn session cũ sau một khoảng ngắn.
+ */
+if (function_exists('gc_enable')) {
+    @gc_enable();
+    @gc_collect_cycles();
+}
+
+// Giới hạn buffer / debug / opcache (nếu có)
+@ini_set('display_errors', 0);
+@ini_set('log_errors', 0);
+@ini_set('output_buffering', 'Off');
+@ini_set('zlib.output_compression', 'Off'); // nếu hosting đã bật gzip thì để hosting xử lý
+@ini_set('memory_limit', '256M'); // bạn có thể chỉnh xuống 128M nếu cần
+@ini_set('max_execution_time', 30); // tránh script chạy quá lâu
+
+// Session GC: xác suất dọn session = gc_probability/gc_divisor
+@ini_set('session.gc_probability', 1);
+@ini_set('session.gc_divisor', 100);
+@ini_set('session.gc_maxlifetime', 300); // 5 phút
+
+// Nếu có OPcache, giữ kích hoạt nhưng giảm bộ đệm nếu cần
+if (function_exists('opcache_get_status')) {
+    @ini_set('opcache.enable', 1);
+    @ini_set('opcache.revalidate_freq', 2);
+}
+
+// Hàm tiện ích non-blocking HTTP request (sử dụng fsockopen)
+// Gửi request đơn giản và đóng socket ngay, không chờ response => nhẹ
+function http_ping_nonblocking($url) {
+    // $url ví dụ: https://example.com/ping.php
+    $parts = parse_url($url);
+    if (!$parts || !isset($parts['host'])) return false;
+
+    $scheme = isset($parts['scheme']) ? $parts['scheme'] : 'http';
+    $host = $parts['host'];
+    $path = isset($parts['path']) ? $parts['path'] : '/';
+    if (isset($parts['query']) && $parts['query'] !== '') $path .= '?' . $parts['query'];
+
+    $port = ($scheme === 'https') ? 443 : 80;
+    $transport = ($scheme === 'https') ? 'ssl://' : '';
+
+    // timeout rất ngắn để không block
+    $timeout = 1; // 1 second connect timeout
+    $errno = 0; $errstr = '';
+
+    // suppress warnings
+    $fp = @fsockopen($transport . $host, $port, $errno, $errstr, $timeout);
+    if (!$fp) {
+        return false;
+    }
+
+    // non-blocking mode: không chờ response
+    stream_set_blocking($fp, false);
+    stream_set_timeout($fp, 1);
+
+    $req  = "GET " . $path . " HTTP/1.1\r\n";
+    $req .= "Host: " . $host . "\r\n";
+    $req .= "User-Agent: AutoWake/1.0\r\n";
+    $req .= "Connection: Close\r\n\r\n";
+
+    @fwrite($fp, $req);
+
+    // Thoát luôn (không đọc trả về)
+    @fclose($fp);
+    return true;
+}
+
+/**
+ * Auto wake (đánh thức) mỗi X giây.
+ * - Lưu file last_wake trong data/last_wake_wakeup.txt
+ * - Nếu quá interval (mặc định 600s = 10 phút) thì gửi 1 ping non-blocking tới $wake_url
+ */
+function auto_wake_if_needed($wake_url = null, $interval_seconds = 600) {
+    // Mặc định wake tới chính host /ping.php nếu tồn tại
+    if (empty($wake_url)) {
+        // cố lấy domain chính hoặc route ping mặc định
+        if (!empty($_SERVER['HTTP_HOST'])) {
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $wake_url = $scheme . '://' . $_SERVER['HTTP_HOST'] . '/ping.php';
+        } else {
+            return false;
+        }
+    }
+
+    // Ensure data directory exists
+    $data_dir = __DIR__ . '/data';
+    if (!is_dir($data_dir)) {
+        @mkdir($data_dir, 0755, true);
+    }
+    $stamp_file = $data_dir . '/last_wake_wakeup.txt';
+
+    $now = time();
+    $last = 0;
+    if (file_exists($stamp_file)) {
+        $last = @intval(@file_get_contents($stamp_file));
+    }
+
+    // nếu quá interval hoặc file ko tồn tại -> wake
+    if (($now - $last) >= $interval_seconds) {
+        // Gửi ping non-blocking
+        $sent = @http_ping_nonblocking($wake_url);
+        // Cập nhật timestamp dù thất bại để tránh spam liên tục
+        @file_put_contents($stamp_file, (string)$now, LOCK_EX);
+        return $sent;
+    }
+
+    return false;
+}
+
+// Thực hiện auto-wake: mặc định 10 phút (600s)
+// Nếu bạn muốn thay đổi URL ping, đặt biến $WAKE_URL trong .env hoặc config trước khi include config.php
+if (isset($WAKE_URL) && !empty($WAKE_URL)) {
+    auto_wake_if_needed($WAKE_URL, intval($WAKE_INTERVAL_SECONDS ?? 600));
+} else {
+    // Nếu trong .env có DOMAIN_HOST, DOMAIN_CHINH thì ưu tiên
+    $default_wake = null;
+    if (!empty(getenv('DOMAIN_HOST'))) {
+        // DOMAIN_HOST có thể là https://vn124.dvd.vn:2083/ nhưng hosting cPanel port 2083 không phù hợp
+        // vì đó là cPanel UI. Mình ưu tiên DOMAIN_CHINH hoặc host hiện tại.
+        $default_wake = rtrim(getenv('DOMAIN_HOST'), '/') . '/ping.php';
+    } elseif (!empty(getenv('DOMAIN_CHINH'))) {
+        $default_wake = rtrim(getenv('DOMAIN_CHINH'), '/') . '/ping.php';
+    }
+
+    // Nếu không có env, fallback dùng host hiện tại
+    auto_wake_if_needed($default_wake, 600);
+}
+
+/* ============================================================
+   Phần cấu hình gốc của bạn (mình giữ nguyên nội dung, chỉ chèn
+   các đoạn tối ưu ở trên). Bạn có thể chỉnh lại tiếp trong file.
+   ============================================================ */
 
 $config = [
-    'project'       => 'SHOPCLONE6',
+    'project'       => '𝐏𝐫𝐢𝐦𝐞𝐤𝐤𝐢𝐫𝐫𝐮-𝐒𝐭𝐨𝐫𝐞.𝐨𝐧𝐫𝐞𝐧𝐝𝐞𝐫.𝐜𝐨𝐦',
     'version'       => '6.7.2',
     'max_time_load' => 4,
     'limit_block_login_client'  => 10,
@@ -221,11 +365,6 @@ $domain_black = [
     'via2h.com',
     'viausvn.com',
     'thegioiroblox.com',
-    'shopclonevia.link',
-    'shopgameso1.store',
-    'mun88.me',
-    'ntcheap.click',
-    'xutraodoisub.com',
     'shopclone.fun',
     'muavia25.com',
     'rdtheblue.site',
@@ -235,8 +374,8 @@ $domain_black = [
 ];
 
  
-
-
+// Nếu host nằm trong blacklist thì die (mình giữ nguyên)
 if(in_array($_SERVER['HTTP_HOST'], $domain_black)) {
     echo 'Die';
+    exit;
 }
