@@ -1,5 +1,4 @@
 <?php
-// Không được có khoảng trắng hoặc ký tự nào trước dòng này!!!
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -7,72 +6,66 @@ if (session_status() === PHP_SESSION_NONE) {
 class DB {
     private static $conn;
 
-    // 🧩 Kết nối PostgreSQL
     public static function connect() {
         if (!self::$conn) {
             $host = getenv('DB_HOST') ?: '127.0.0.1';
-            $port = getenv('DB_PORT') ?: '5432';
-            $dbname = getenv('DB_DATABASE') ?: '';
-            $user = getenv('DB_USERNAME') ?: '';
+            $user = getenv('DB_USERNAME') ?: 'postgres';
             $pass = getenv('DB_PASSWORD') ?: '';
+            $db   = getenv('DB_DATABASE') ?: 'primekkirru_db';
+            $port = getenv('DB_PORT') ?: '5432';
 
-            $connStr = "host=$host port=$port dbname=$dbname user=$user password=$pass";
-            self::$conn = @pg_connect($connStr);
+            $conn_string = "host=$host port=$port dbname=$db user=$user password=$pass";
+            self::$conn = @pg_connect($conn_string);
 
             if (!self::$conn) {
                 error_log("❌ Database connection failed: " . pg_last_error());
-                die("Database connection failed. Please check .env settings!");
+                die("Database connection failed!");
             }
         }
         return self::$conn;
     }
 
-    // 🧩 Thực thi query
-    public static function query($sql, $params = []) {
+    public static function query($sql) {
         $conn = self::connect();
-
-        if (!empty($params)) {
-            $result = @pg_query_params($conn, $sql, $params);
-        } else {
-            $result = @pg_query($conn, $sql);
-        }
-
+        $result = @pg_query($conn, $sql);
         if (!$result) {
-            error_log("SQL Error: " . pg_last_error($conn));
+            error_log("SQL Error: " . pg_last_error($conn) . " in query: " . $sql);
         }
         return $result;
     }
 
-    // 🧩 Lấy 1 dòng dữ liệu
-    public static function fetch($sql, $params = []) {
-        $result = self::query($sql, $params);
+    public static function fetch($sql) {
+        $result = self::query($sql);
         return $result ? pg_fetch_assoc($result) : null;
     }
 
-    // 🧩 Lấy tất cả dữ liệu
-    public static function fetchAll($sql, $params = []) {
-        $result = self::query($sql, $params);
-        return $result ? pg_fetch_all($result) : [];
+    public static function fetchAll($sql) {
+        $result = self::query($sql);
+        $data = [];
+        if ($result) {
+            while ($row = pg_fetch_assoc($result)) {
+                $data[] = $row;
+            }
+        }
+        return $data;
     }
 
-    // 🧩 Hàm site() - dùng cho cấu hình website
-    public function site($key) {
-        $data = self::fetch("SELECT value FROM settings WHERE name = $1", [$key]);
-        return $data['value'] ?? null;
-    }
-
-    // 🧩 Đếm dòng
-    public static function numRows($sql, $params = []) {
-        $result = self::query($sql, $params);
+    public static function numRows($sql) {
+        $result = self::query($sql);
         return $result ? pg_num_rows($result) : 0;
     }
 
-    // 🧩 Đóng kết nối
     public static function close() {
         if (self::$conn) {
             pg_close(self::$conn);
             self::$conn = null;
         }
+    }
+
+    public function site($key) {
+        $key = pg_escape_string(self::connect(), $key);
+        $result = self::fetch("SELECT value FROM settings WHERE name = '$key' LIMIT 1");
+        return $result['value'] ?? null;
     }
 }
 ?>
