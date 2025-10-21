@@ -1,0 +1,51 @@
+<!-- Dev By CMSNT.CO | FB.COM/CMSNT.CO | ZALO.ME/0947838128 | MMO Solution -->
+<?php
+define("IN_SITE", true);
+
+
+require_once(__DIR__.'/libs/db.php');
+require_once(__DIR__.'/config.php');
+require_once(__DIR__.'/libs/lang.php');
+require_once(__DIR__.'/libs/helper.php');
+require_once(__DIR__.'/libs/database/users.php');
+$CMSNT = new DB();
+ 
+$module = !empty($_GET['module']) ? check_path($_GET['module']) : 'client';
+$home   = $module == 'client' ? $CMSNT->site('home_page') : 'home';
+$action = !empty($_GET['action']) ? check_path($_GET['action']) : $home;
+
+$ref = isset($_GET['ref']) ? check_string($_GET['ref']) : null;
+if ($ref) {
+    $domain_row = $CMSNT->get_row("SELECT * FROM `domains` WHERE `domain` = '".check_string($ref)."' ");
+    if ($domain_row) {
+        $user_id = $domain_row['user_id'];
+        $user_row = $CMSNT->get_row("SELECT * FROM `users` WHERE `id` = '".check_string($user_id)."' ");
+        if ($user_row) {
+            $_SESSION['ref'] = $user_row['id'];
+            // CỘNG LƯỢT CLICK
+            $CMSNT->cong('users', 'ref_click', 1, " `id` = '".$user_row['id']."' ");
+
+        }
+    }
+}
+
+if($module == 'client'){
+    if ($CMSNT->site('status') != 1 && !isset($_SESSION['admin_login'])) {
+        require_once(__DIR__.'/resources/views/common/maintenance.php');
+        exit();
+    }
+}
+
+if($action == 'footer' || $action == 'header' || $action == 'sidebar' || $action == 'nav'){
+    require_once(__DIR__.'/resources/views/common/404.php');
+    exit();
+}
+$path = "resources/views/$module/$action.php";
+if (file_exists($path)) {
+    require_once(__DIR__.'/'.$path);
+    exit();
+} else {
+    require_once(__DIR__.'/resources/views/common/404.php');
+    exit();
+}
+?>
