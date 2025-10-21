@@ -1,168 +1,127 @@
 <?php
-/*
- * CMSNT Optimized DB Class for Low-RAM Hosting (Render, 512MB/0.1CPU)
- * Safe .env loading + auto reconnect + UTF-8 fix
- */
-
-if (!defined('IN_SITE')) {
-    define('IN_SITE', true); // fallback nếu chưa define ở index.php
-}
-
-/* --------------------------------------------------------
-   PHẦN KHỞI TẠO - KHÔNG GỬI HEADER TRƯỚC SESSION_START()
------------------------------------------------------------ */
-
-// Ngăn lỗi "headers already sent"
 if (session_status() === PHP_SESSION_NONE) {
-    ob_start(); // Bắt đầu output buffer
     session_start();
 }
 
-/* --------------------------------------------------------
-   LOAD DOTENV (.env)
------------------------------------------------------------ */
-include_once(__DIR__ . '/../vendor/autoload.php');
-
-// Load .env an toàn, không crash nếu thiếu
-if (file_exists(__DIR__ . '/../.env')) {
-    try {
-        $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
-        $dotenv->safeLoad(); // không lỗi khi thiếu .env
-    } catch (Exception $e) {
-        error_log('ENV load error: ' . $e->getMessage());
+// Đọc file .env
+function loadEnv($path = __DIR__ . '/../.env') {
+    if (!file_exists($path)) return;
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) continue;
+        [$name, $value] = array_map('trim', explode('=', $line, 2));
+        $_ENV[$name] = $value;
     }
 }
+loadEnv();
 
-/* --------------------------------------------------------
-   CLASS DB
------------------------------------------------------------ */
+// Lấy biến môi trường
+$db_host = $_ENV['DB_HOST'] ?? 'localhost';
+$db_name = $_ENV['DB_DATABASE'] ?? '';
+$db_user = $_ENV['DB_USERNAME'] ?? '';
+$db_pass = $_ENV['DB_PASSWORD'] ?? '';
+$db_port = $_ENV['DB_PORT'] ?? '3306';
 
-class DB
-{
-    private $ketnoi = null;
+// Class DB
+class DB {
+    private static $conn;
 
-    // ✅ Kết nối MySQL an toàn & nhẹ
-    public function connect()
-    {
-        if ($this->ketnoi && @mysqli_ping($this->ketnoi)) {
-            return; // kết nối vẫn ổn, không cần mở lại
-        }
+    // Kết nối MySQL
+    public static function connect() {
+        if (self::$conn) return self::$conn;
 
-        $host = $_ENV['DB_HOST'] ?? '127.0.0.1';
-        $user = $_ENV['DB_USERNAME'] ?? 'root';
+        $host = $_ENV['DB_HOST'] ?? 'localhost';
+        $user = $_ENV['DB_USERNAME'] ?? '';
         $pass = $_ENV['DB_PASSWORD'] ?? '';
         $name = $_ENV['DB_DATABASE'] ?? '';
+        $port = $_ENV['DB_PORT'] ?? '3306';
 
-        $this->ketnoi = @mysqli_connect($host, $user, $pass, $name);
-
-        if (!$this->ketnoi) {
-            error_log('⚠️ Database connection failed: ' . mysqli_connect_error());
-            die('⚠️ Database connection failed — please check .env or MySQL status');
+        // Kiểm tra extension mysqli
+        if (!extension_loaded('mysqli')) {
+            die('❌ Lỗi: PHP chưa cài extension mysqli. Hãy thêm dòng sau vào Dockerfile:
+RUN docker-php-ext-install mysqli && docker-php-ext-enable mysqli');
         }
 
-        mysqli_set_charset($this->ketnoi, 'utf8mb4');
-    }
+        // Kết nối
+        $conn = @mysqli_connect($host, $user, $pass, $name, $port);
 
-    // ✅ Đóng kết nối khi không cần
-    public function dis_connect()
-    {
-        if ($this->ketnoi) {
-            @mysqli_close($this->ketnoi);
-            $this->ketnoi = null;
+        if (!$conn) {
+            $error = mysqli_connect_error();
+            die("❌ Không thể kết nối MySQL: $error<br>Host: $host | Port: $port | DB: $name");
         }
+
+        // Cấu hình UTF-8
+        mysqli_set_charset($conn, 'utf8mb4');
+
+        self::$conn = $conn;
+        return $conn;
     }
 
-    // ✅ Lấy cấu hình site
-    public function site($data)
-    {
-        $this->connect();
-        $stmt = $this->ketnoi->prepare("SELECT `value` FROM `settings` WHERE `name` = ?");
+    // Lấy dữ liệu site
+    public function site($name) {
+        $conn = self::connect();
+        $stmt = mysqli_prepare($conn, "SELECT value FROM site_setting WHERE name = ? LIMIT 1");
         if (!$stmt) return null;
-        $stmt->bind_param("s", $data);
-        $stmt->execute();
-        $result = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        return $result['value'] ?? null;
+        mysqli_stmt_bind_param($stmt, 's', $name);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_bind_result($stmt, $value);
+        mysqli_stmt_fetch($stmt);
+        mysqli_stmt_close($stmt);
+        return $value;
     }
 
-    // ✅ Query cơ bản
-    public function query($sql)
-    {
-        $this->connect();
-        return $this->ketnoi->query($sql);
-    }
-
-    public function cong($table, $data, $sotien, $where)
-    {
-        $this->connect();
-        return $this->ketnoi->query("UPDATE `$table` SET `$data` = `$data` + '$sotien' WHERE $where");
-    }
-
-    public function tru($table, $data, $sotien, $where)
-    {
-        $this->connect();
-        return $this->ketnoi->query("UPDATE `$table` SET `$data` = `$data` - '$sotien' WHERE $where");
-    }
-
-    // ✅ INSERT an toàn
-    public function insert($table, $data)
-    {
-        $this->connect();
-        $cols = implode(',', array_keys($data));
-        $vals = implode("','", array_map([$this->ketnoi, 'real_escape_string'], array_values($data)));
-        $sql = "INSERT INTO `$table` ($cols) VALUES ('$vals')";
-        return $this->ketnoi->query($sql);
-    }
-
-    // ✅ UPDATE
-    public function update($table, $data, $where)
-    {
-        $this->connect();
-        $set = '';
-        foreach ($data as $k => $v) {
-            $set .= "`$k`='" . $this->ketnoi->real_escape_string($v) . "',";
+    // Chạy query
+    public function query($sql) {
+        $conn = self::connect();
+        $result = mysqli_query($conn, $sql);
+        if (!$result) {
+            echo "<b>Lỗi SQL:</b> " . mysqli_error($conn) . "<br><code>$sql</code><br>";
         }
-        $sql = "UPDATE `$table` SET " . rtrim($set, ',') . " WHERE $where";
-        return $this->ketnoi->query($sql);
+        return $result;
     }
 
-    // ✅ DELETE
-    public function remove($table, $where)
-    {
-        $this->connect();
-        return $this->ketnoi->query("DELETE FROM `$table` WHERE $where");
+    // Hàm tiện ích
+    public function fetch_assoc($sql) {
+        $result = $this->query($sql);
+        return mysqli_fetch_assoc($result);
     }
 
-    // ✅ Lấy danh sách
-    public function get_list($sql)
-    {
-        $this->connect();
-        $result = $this->ketnoi->query($sql);
-        if (!$result) return [];
-        $rows = $result->fetch_all(MYSQLI_ASSOC);
-        $result->free();
-        return $rows;
+    public function fetch_array($sql) {
+        $result = $this->query($sql);
+        $data = [];
+        while ($row = mysqli_fetch_assoc($result)) {
+            $data[] = $row;
+        }
+        return $data;
     }
 
-    // ✅ Lấy dòng đầu tiên
-    public function get_row($sql)
-    {
-        $this->connect();
-        $result = $this->ketnoi->query($sql);
-        if (!$result) return false;
-        $row = $result->fetch_assoc();
-        $result->free();
-        return $row ?: false;
+    public function num_rows($sql) {
+        $result = $this->query($sql);
+        return mysqli_num_rows($result);
     }
 
-    // ✅ Đếm dòng
-    public function num_rows($sql)
-    {
-        $this->connect();
-        $result = $this->ketnoi->query($sql);
-        if (!$result) return 0;
-        $count = $result->num_rows;
-        $result->free();
-        return $count;
+    public function insert($table, $data) {
+        $conn = self::connect();
+        $cols = implode(",", array_keys($data));
+        $vals = "'" . implode("','", array_map([$conn, 'real_escape_string'], array_values($data))) . "'";
+        return mysqli_query($conn, "INSERT INTO $table ($cols) VALUES ($vals)");
+    }
+
+    public function update($table, $data, $where) {
+        $conn = self::connect();
+        $set = [];
+        foreach ($data as $k => $v) {
+            $set[] = "$k='" . mysqli_real_escape_string($conn, $v) . "'";
+        }
+        return mysqli_query($conn, "UPDATE $table SET " . implode(",", $set) . " WHERE $where");
+    }
+
+    public function delete($table, $where) {
+        $conn = self::connect();
+        return mysqli_query($conn, "DELETE FROM $table WHERE $where");
     }
 }
+
+// Khởi tạo đối tượng DB
+$CMSNT = new DB();
+?>
