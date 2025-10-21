@@ -7,7 +7,7 @@
  */
 
 // ✅ Link Google Drive file ZIP (đừng dùng link folder!)
-$googleDriveFileUrl = "https://drive.google.com/file/d/1WyQqke9P1bMPFIYTdvG3D5w18txHdsn2/view?usp=drive_link";
+$googleDriveFileUrl = "https://drive.google.com/uc?export=download&id=1WyQqke9P1bMPFIYTdvG3D5w18txHdsn2";
 
 // ✅ Tên file ZIP tải về
 $localZipFile = "source.zip";
