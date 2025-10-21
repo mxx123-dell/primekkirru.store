@@ -8,10 +8,22 @@ if (!defined('IN_SITE')) {
     define('IN_SITE', true); // fallback nếu chưa define ở index.php
 }
 
-// ✅ Load Composer (Dotenv)
+/* --------------------------------------------------------
+   PHẦN KHỞI TẠO - KHÔNG GỬI HEADER TRƯỚC SESSION_START()
+----------------------------------------------------------- */
+
+// Ngăn lỗi "headers already sent"
+if (session_status() === PHP_SESSION_NONE) {
+    ob_start(); // Bắt đầu output buffer
+    session_start();
+}
+
+/* --------------------------------------------------------
+   LOAD DOTENV (.env)
+----------------------------------------------------------- */
 include_once(__DIR__ . '/../vendor/autoload.php');
 
-// ✅ Load .env an toàn, không crash nếu thiếu
+// Load .env an toàn, không crash nếu thiếu
 if (file_exists(__DIR__ . '/../.env')) {
     try {
         $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
@@ -21,9 +33,9 @@ if (file_exists(__DIR__ . '/../.env')) {
     }
 }
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+/* --------------------------------------------------------
+   CLASS DB
+----------------------------------------------------------- */
 
 class DB
 {
@@ -36,14 +48,16 @@ class DB
             return; // kết nối vẫn ổn, không cần mở lại
         }
 
-        $host = $_ENV['DB_HOST'] ?? 'localhost';
+        $host = $_ENV['DB_HOST'] ?? '127.0.0.1';
         $user = $_ENV['DB_USERNAME'] ?? 'root';
         $pass = $_ENV['DB_PASSWORD'] ?? '';
         $name = $_ENV['DB_DATABASE'] ?? '';
 
         $this->ketnoi = @mysqli_connect($host, $user, $pass, $name);
+
         if (!$this->ketnoi) {
-            die('⚠️ Database connection failed — please check .env');
+            error_log('⚠️ Database connection failed: ' . mysqli_connect_error());
+            die('⚠️ Database connection failed — please check .env or MySQL status');
         }
 
         mysqli_set_charset($this->ketnoi, 'utf8mb4');
@@ -63,6 +77,7 @@ class DB
     {
         $this->connect();
         $stmt = $this->ketnoi->prepare("SELECT `value` FROM `settings` WHERE `name` = ?");
+        if (!$stmt) return null;
         $stmt->bind_param("s", $data);
         $stmt->execute();
         $result = $stmt->get_result()->fetch_assoc();
@@ -123,9 +138,7 @@ class DB
     {
         $this->connect();
         $result = $this->ketnoi->query($sql);
-        if (!$result) {
-            return [];
-        }
+        if (!$result) return [];
         $rows = $result->fetch_all(MYSQLI_ASSOC);
         $result->free();
         return $rows;
@@ -136,9 +149,7 @@ class DB
     {
         $this->connect();
         $result = $this->ketnoi->query($sql);
-        if (!$result) {
-            return false;
-        }
+        if (!$result) return false;
         $row = $result->fetch_assoc();
         $result->free();
         return $row ?: false;
@@ -149,9 +160,7 @@ class DB
     {
         $this->connect();
         $result = $this->ketnoi->query($sql);
-        if (!$result) {
-            return 0;
-        }
+        if (!$result) return 0;
         $count = $result->num_rows;
         $result->free();
         return $count;
