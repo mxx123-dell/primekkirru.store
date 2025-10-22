@@ -1,8 +1,7 @@
 <?php
-// index.php
-// Dev banner by CMSNT.CO , Dev Code kkirru
+// index.php - Dev by CMSNT.CO
 
-// Output buffering để tránh headers already sent
+// Output buffering để tránh lỗi headers
 ob_start();
 
 // Session an toàn
@@ -10,7 +9,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Tắt deprecated notice nếu có
+// Tắt notice/deprecated
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 define("IN_SITE", true);
@@ -43,7 +42,7 @@ $ref    = isset($_GET['ref']) ? check_string($_GET['ref']) : null;
 $CMSNT = new DB();
 $CMSNT::connect();
 
-// Xử lý ref
+// Xử lý ref an toàn
 if ($ref) {
     $ref_safe = pg_escape_string($CMSNT::connect(), $ref);
     $domain_row = $CMSNT->fetch("SELECT user_id FROM domains WHERE domain = '$ref_safe' LIMIT 1");
