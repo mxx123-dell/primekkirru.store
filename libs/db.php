@@ -11,11 +11,12 @@ class DB {
 
     public static function connect(): \PgSql\Connection {
         if (!self::$conn) {
-            $host = getenv('DB_HOST') ?: '127.0.0.1';
-            $user = getenv('DB_USERNAME') ?: 'postgres';
-            $pass = getenv('DB_PASSWORD') ?: 'hqw9ByoG2YNzjJFjIhZe0JMut3dWYcxt';
-            $db   = getenv('DB_DATABASE') ?: 'primekkirru_db';
-            $port = getenv('DB_PORT') ?: '5432';
+            $host = getenv('DB_HOST') ?: 'dpg-d3roc9ruibrs73b64adg-a';
+$user = getenv('DB_USERNAME') ?: 'primekkirru_db_user';
+$pass = getenv('DB_PASSWORD') ?: 'hqw9ByoG2YNzjJFjIhZe0JMut3dWYcxt';
+$db   = getenv('DB_DATABASE') ?: 'primekkirru_db';
+$port = getenv('DB_PORT') ?: '5432';
+
 
             $conn_string = "host=$host port=$port dbname=$db user=$user password=$pass";
 
