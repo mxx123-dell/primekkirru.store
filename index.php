@@ -1,12 +1,8 @@
-<!-- Dev By CMSNT.CO -->
 <?php
-/**
- * ========================================
- * ⚡ PRIMEKKIRRU STORE — MAIN ENTRY FILE
- * ========================================
- */
+// index.php
+// Dev banner by CMSNT.CO , Dev Code kkirru
 
-// Bắt đầu output buffering để tránh lỗi headers
+// Output buffering để tránh headers already sent
 ob_start();
 
 // Session an toàn
@@ -14,18 +10,18 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-define("IN_SITE", true);
-
-// Tắt deprecated notice để pg_last_error không báo
+// Tắt deprecated notice nếu có
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
+
+define("IN_SITE", true);
 
 // Include config, helper, db
 require_once(__DIR__ . '/config.php');
 require_once(__DIR__ . '/libs/helper.php');
 require_once(__DIR__ . '/libs/db.php');
 
-// Hàm load lib động
-function load_lib($file) {
+// Load lib động
+function load_lib(string $file) {
     $path = __DIR__ . '/libs/' . $file . '.php';
     if (file_exists($path)) {
         require_once($path);
@@ -43,14 +39,14 @@ $home   = ($module == 'client') ? 'home' : 'home';
 $action = !empty($_GET['action']) ? check_path($_GET['action']) : $home;
 $ref    = isset($_GET['ref']) ? check_string($_GET['ref']) : null;
 
-// Kết nối DB trước khi sử dụng
+// Kết nối DB
 $CMSNT = new DB();
 $CMSNT::connect();
 
 // Xử lý ref
 if ($ref) {
-    // Sử dụng prepare statement an toàn
-    $domain_row = $CMSNT->fetch("SELECT user_id FROM domains WHERE domain = '$ref' LIMIT 1");
+    $ref_safe = pg_escape_string($CMSNT::connect(), $ref);
+    $domain_row = $CMSNT->fetch("SELECT user_id FROM domains WHERE domain = '$ref_safe' LIMIT 1");
     if ($domain_row && isset($domain_row['user_id'])) {
         $user_id = (int)$domain_row['user_id'];
         $CMSNT->query("UPDATE users SET ref_click = ref_click + 1 WHERE id = '$user_id' LIMIT 1");
