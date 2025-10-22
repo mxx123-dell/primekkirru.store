@@ -61,13 +61,30 @@ if (in_array($action, ['footer', 'header', 'sidebar', 'nav'])) {
     exit();
 }
 
-// Load view
+// ==================== ⚡️ THÊM PHẦN ROUTER BẢO VỆ VÀ TỰ LOAD SHOP ⚡️ ====================
+
+// Nếu module = client và chưa có action, tự động về home.php
+if ($module === 'client' && empty($_GET['action'])) {
+    $action = 'home';
+}
+
+// Đường dẫn đến view
 $view = __DIR__ . "/resources/views/$module/$action.php";
+
+// Nếu file tồn tại → load bình thường
 if (file_exists($view)) {
     require_once($view);
 } else {
-    require_once(__DIR__ . '/resources/views/common/404.php');
+    // Nếu là client mà chưa có action khớp, thử gọi home dự phòng
+    if ($module === 'client' && file_exists(__DIR__ . '/resources/views/client/home.php')) {
+        require_once(__DIR__ . '/resources/views/client/home.php');
+    } else {
+        require_once(__DIR__ . '/resources/views/common/404.php');
+    }
 }
+
+// ==================== ⚡️ KẾT THÚC PHẦN THÊM ⚡️ ====================
+
 
 // Auto Ping (chống Render ngủ)
 $ping_file = sys_get_temp_dir() . '/last_ping.txt';
