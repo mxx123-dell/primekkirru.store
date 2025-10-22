@@ -12,7 +12,7 @@ class DB {
         if (!self::$conn) {
             $host = getenv('DB_HOST') ?: 'dpg-d3roc9ruibrs73b64adg-a'; // Render host
             $user = getenv('DB_USERNAME') ?: 'primekkirru_db_user';     // Render username
-            $pass = getenv('DB_PASSWORD') ?: 'YOUR_DB_PASSWORD';        // Render password
+            $pass = getenv('DB_PASSWORD') ?: 'hqw9ByoG2YNzjJFjIhZe0JMut3dWYcxt';        // Render password
             $db   = getenv('DB_DATABASE') ?: 'primekkirru_db';
             $port = getenv('DB_PORT') ?: '5432';
 
