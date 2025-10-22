@@ -48,12 +48,12 @@ if ($ref) {
 }
 
 // Kiểm tra site status
-if ($module == 'client') {
-    if ($CMSNT->site('status') != 1 && !isset($_SESSION['admin_login'])) {
-        require_once(__DIR__ . '/resources/views/common/maintenance.php');
-        exit();
-    }
-}
+//if ($module == 'client') {
+//    if ($CMSNT->site('status') != 1 && !isset($_SESSION['admin_login'])) {
+//        require_once(__DIR__ . '/resources/views/common/maintenance.php');
+//        exit();
+//    }
+//}
 
 // Chặn truy cập header/footer/sidebar/nav trực tiếp
 if (in_array($action, ['footer', 'header', 'sidebar', 'nav'])) {
