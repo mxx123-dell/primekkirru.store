@@ -1,12 +1,14 @@
 <?php
-<!-- Dev By CMSNT.CO -->
+// Dev By CMSNT.CO
 ob_start(); // Ngăn lỗi headers already sent
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 define("IN_SITE", true);
 
+// Load config và helper
 require_once(__DIR__ . '/config.php');
 require_once(__DIR__ . '/libs/helper.php');
 require_once(__DIR__ . '/libs/db.php');
@@ -53,7 +55,7 @@ if ($module == 'client') {
     }
 }
 
-// Chặn gọi header/footer/sidebar/nav trực tiếp
+// Chặn truy cập header/footer/sidebar/nav trực tiếp
 if (in_array($action, ['footer', 'header', 'sidebar', 'nav'])) {
     require_once(__DIR__ . '/resources/views/common/404.php');
     exit();
