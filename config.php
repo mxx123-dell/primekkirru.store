@@ -237,6 +237,6 @@ $domain_black = [
  
 
 
-if(in_array($_SERVER['HTTP_HOST'], $domain_black)) {
-    echo 'Die';
-}
+//if(in_array($_SERVER['HTTP_HOST'], $domain_black)) {
+//    echo 'Die';
+//}
