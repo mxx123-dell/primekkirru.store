@@ -1,7 +1,6 @@
-<?php
+<?php 
 // Dev By CMSNT.CO
-ob_start(); // Ngăn lỗi headers already sent
-
+ob_start();
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -28,8 +27,7 @@ ignore_user_abort(true);
 
 // Xử lý module/action/ref
 $module = !empty($_GET['module']) ? check_path($_GET['module']) : 'client';
-$home   = ($module == 'client') ? 'home' : 'home';
-$action = !empty($_GET['action']) ? check_path($_GET['action']) : $home;
+$action = !empty($_GET['action']) ? check_path($_GET['action']) : 'shopacc'; // 🔥 mặc định shopacc
 $ref    = isset($_GET['ref']) ? check_string($_GET['ref']) : null;
 
 // Khởi tạo DB
@@ -47,49 +45,31 @@ if ($ref) {
     }
 }
 
-// Kiểm tra site status
-//if ($module == 'client') {
-//    if ($CMSNT->site('status') != 1 && !isset($_SESSION['admin_login'])) {
-//        require_once(__DIR__ . '/resources/views/common/maintenance.php');
-//        exit();
-//    }
-//}
-
-// Chặn truy cập header/footer/sidebar/nav trực tiếp
+// Chặn truy cập trực tiếp các phần nhỏ
 if (in_array($action, ['footer', 'header', 'sidebar', 'nav'])) {
     require_once(__DIR__ . '/resources/views/common/404.php');
     exit();
 }
 
-// ==================== ⚡️ THÊM PHẦN ROUTER BẢO VỆ VÀ TỰ LOAD SHOP ⚡️ ====================
-
-// Nếu module = client và chưa có action, tự động về home.php
-if ($module === 'client' && empty($_GET['action'])) {
-    $action = 'home';
-}
-
-// Đường dẫn đến view
+// 🧩 Đường dẫn đến view
 $view = __DIR__ . "/resources/views/$module/$action.php";
 
 // Nếu file tồn tại → load bình thường
 if (file_exists($view)) {
     require_once($view);
 } else {
-    // Nếu là client mà chưa có action khớp, thử gọi home dự phòng
-    if ($module === 'client' && file_exists(__DIR__ . '/resources/views/client/home.php')) {
-        require_once(__DIR__ . '/resources/views/client/home.php');
+    // Nếu không có, fallback sang shopacc.php
+    if (file_exists(__DIR__ . '/resources/views/client/shopacc.php')) {
+        require_once(__DIR__ . '/resources/views/client/shopacc.php');
     } else {
         require_once(__DIR__ . '/resources/views/common/404.php');
     }
 }
 
-// ==================== ⚡️ KẾT THÚC PHẦN THÊM ⚡️ ====================
-
-
 // Auto Ping (chống Render ngủ)
 $ping_file = sys_get_temp_dir() . '/last_ping.txt';
 $now = time();
-$ping_interval = 600; // 10 phút
+$ping_interval = 600;
 
 if (!file_exists($ping_file) || ($now - @filemtime($ping_file)) > $ping_interval) {
     @file_put_contents($ping_file, $now);
@@ -97,8 +77,7 @@ if (!file_exists($ping_file) || ($now - @filemtime($ping_file)) > $ping_interval
     @exec("curl -s -o /dev/null $url >/dev/null 2>&1 &");
 }
 
-unset($CMSNT, $module, $action, $home, $ref, $view);
+unset($CMSNT, $module, $action, $ref, $view);
 gc_collect_cycles();
-
 ob_end_flush();
 ?>
