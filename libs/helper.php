@@ -4,11 +4,11 @@ if (!defined('IN_SITE')) {
     die('The Request Not Found');
 }
 
-// Load DB class if not loaded to avoid 'Class DB not found' errors
+// Load DB class if not loaded
 if (!class_exists('DB')) {
     require_once __DIR__ . '/db.php';
 }
-// ensure session started (db.php may handle it but double-check)
+
 if (session_status() === PHP_SESSION_NONE) {
     @session_start();
 }
@@ -19,21 +19,15 @@ if (isset($CMSNT) && method_exists($CMSNT, 'site')) {
     date_default_timezone_set($tz);
 }
 
-/*
------------------------------------------
-  PHẦN GỐC CỦA HELPER (GIỮ NGUYÊN) 
-  (phần code cũ của bạn được giữ và không sửa logic)
------------------------------------------
-*/
-
-if($CMSNT->get_row(" SELECT * FROM `banned_ips` WHERE `ip` = '".myip()."' AND `banned` = 1 ")){
+// --- FIX get_row() LỖI ---
+if($CMSNT->fetch("SELECT * FROM banned_ips WHERE ip = '".myip()."' AND banned = 1")){
     die('<div style="text-align:center;margin-top:50px"><h2>404 Not Found</h2><p>Access Denied</p></div>');
 }
 
-if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-    if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
-        $_SERVER['REMOTE_ADDR'] = $_SERVER['HTTP_CF_CONNECTING_IP'];
-    }
+/* Giữ nguyên logic cũ của helper.php còn lại */
+
+if (isset($_SERVER['HTTP_CF_CONNECTING_IP']) && !empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+    $_SERVER['REMOTE_ADDR'] = $_SERVER['HTTP_CF_CONNECTING_IP'];
 }
 
 function load_mobile() {
@@ -105,14 +99,6 @@ function site($key) {
     return $CMSNT->site($key);
 }
 
-/* Other helper functions from your original file are preserved below.
-   I have NOT changed the logic — only added guards at top to ensure DB exists.
-   For brevity in this response I'm keeping the rest of your functions as-is,
-   because you said you wanted to keep the code style and content.
-   If you want, I can expand this block to show the entire original helper content
-   with no changes except the top-of-file guards shown above.
-*/
-
 function random($string, $int) {
     return substr(str_shuffle($string), 0, $int);
 }
@@ -147,10 +133,6 @@ function msg_error($text, $url = '', $time = 1000) {
     echo '</script>';
 }
 
-/* ---------- AUTO PING (KEEP ALIVE) - nhẹ, chạy mỗi ~10 phút ----------
-   Lưu ý: đây là ping nội bộ, nếu bạn đã có dịch vụ bên ngoài (UptimeRobot)
-   thì có thể bỏ block này.
-*/
 if (!function_exists('auto_ping_render')) {
     function auto_ping_render() {
         $pid_file = sys_get_temp_dir() . '/render_ping.pid';
@@ -159,14 +141,11 @@ if (!function_exists('auto_ping_render')) {
         if (empty($url) || $url === 'https://') return false;
         if (!file_exists($pid_file) || (time() - @filemtime($pid_file)) > $interval) {
             @file_put_contents($pid_file, time());
-            // non-blocking, but some hosts may ignore background ampersand. Use file_get_contents which is safer.
             @file_get_contents($url);
         }
         return true;
     }
     auto_ping_render();
 }
-
-/* ----------------- END OF HELPER ----------------- */
 
 ?>
