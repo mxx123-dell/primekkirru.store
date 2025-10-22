@@ -12,7 +12,7 @@ class DB {
         if (!self::$conn) {
             $host = getenv('DB_HOST') ?: '127.0.0.1';
             $user = getenv('DB_USERNAME') ?: 'postgres';
-            $pass = getenv('DB_PASSWORD') ?: '';
+            $pass = getenv('DB_PASSWORD') ?: 'hqw9ByoG2YNzjJFjIhZe0JMut3dWYcxt';
             $db   = getenv('DB_DATABASE') ?: 'primekkirru_db';
             $port = getenv('DB_PORT') ?: '5432';
 
