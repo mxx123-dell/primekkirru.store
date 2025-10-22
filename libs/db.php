@@ -1,7 +1,6 @@
 <?php
 // db.php - Dev by CMSNT.CO
 
-// Bắt đầu session nếu chưa có
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -11,19 +10,17 @@ class DB {
 
     public static function connect(): \PgSql\Connection {
         if (!self::$conn) {
-            $host = getenv('DB_HOST') ?: 'dpg-d3roc9ruibrs73b64adg-a';
-$user = getenv('DB_USERNAME') ?: 'primekkirru_db_user';
-$pass = getenv('DB_PASSWORD') ?: 'hqw9ByoG2YNzjJFjIhZe0JMut3dWYcxt';
-$db   = getenv('DB_DATABASE') ?: 'primekkirru_db';
-$port = getenv('DB_PORT') ?: '5432';
-
+            $host = getenv('DB_HOST') ?: 'dpg-d3roc9ruibrs73b64adg-a'; // Render host
+            $user = getenv('DB_USERNAME') ?: 'primekkirru_db_user';     // Render username
+            $pass = getenv('DB_PASSWORD') ?: 'YOUR_DB_PASSWORD';        // Render password
+            $db   = getenv('DB_DATABASE') ?: 'primekkirru_db';
+            $port = getenv('DB_PORT') ?: '5432';
 
             $conn_string = "host=$host port=$port dbname=$db user=$user password=$pass";
-
             $conn = @pg_connect($conn_string);
             if (!$conn) {
-                die("❌ Database connection failed! 
-Check DB_HOST=$host, DB_PORT=$port, DB_DATABASE=$db, DB_USERNAME=$user, DB_PASSWORD=$pass");
+                die("❌ Cannot connect to PostgreSQL! 
+Host: $host, Port: $port, Database: $db, User: $user, Password: $pass");
             }
 
             self::$conn = $conn;
@@ -74,6 +71,15 @@ Check DB_HOST=$host, DB_PORT=$port, DB_DATABASE=$db, DB_USERNAME=$user, DB_PASSW
         $key_safe = pg_escape_string($conn, $key);
         $result = self::fetch("SELECT value FROM settings WHERE name = '$key_safe' LIMIT 1");
         return $result['value'] ?? null;
+    }
+
+    // Thêm phương thức cũ để tương thích helper.php
+    public function get_row(string $sql) {
+        return $this->fetch($sql);
+    }
+
+    public function get_rows(string $sql) {
+        return $this->fetchAll($sql);
     }
 }
 ?>
