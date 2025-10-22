@@ -1,7 +1,7 @@
 <?php
-// db.php
-// Dev by primekkirru
+// db.php - Dev by CMSNT.CO
 
+// Bắt đầu session nếu chưa có
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -18,15 +18,16 @@ class DB {
             $port = getenv('DB_PORT') ?: '5432';
 
             $conn_string = "host=$host port=$port dbname=$db user=$user password=$pass";
-            $conn = @pg_connect($conn_string);
 
+            $conn = @pg_connect($conn_string);
             if (!$conn) {
-                error_log("❌ Database connection failed!");
-                die("Database connection failed!");
+                die("❌ Database connection failed! 
+Check DB_HOST=$host, DB_PORT=$port, DB_DATABASE=$db, DB_USERNAME=$user, DB_PASSWORD=$pass");
             }
 
             self::$conn = $conn;
         }
+
         return self::$conn;
     }
 
@@ -69,8 +70,8 @@ class DB {
 
     public function site(string $key): ?string {
         $conn = self::connect();
-        $key = pg_escape_string($conn, $key);
-        $result = self::fetch("SELECT value FROM settings WHERE name = '$key' LIMIT 1");
+        $key_safe = pg_escape_string($conn, $key);
+        $result = self::fetch("SELECT value FROM settings WHERE name = '$key_safe' LIMIT 1");
         return $result['value'] ?? null;
     }
 }
