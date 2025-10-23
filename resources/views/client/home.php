@@ -158,27 +158,3 @@ if (isset($_POST['hide_notice_popup'])) {
 <?php endif ?>
 
 <?php require_once(__DIR__ . '/footer.php'); ?>
-
-
-<!-- ⚙️ AUTO LOAD SẢN PHẨM -->
-<script>
-function showProduct() {
-    $.ajax({
-        url: "<?= BASE_URL('ajaxs/client/showProduct.php'); ?>",
-        type: "GET",
-        dataType: "html",
-        success: function(data) {
-            $("#showProduct").html(data);
-        },
-        error: function(xhr) {
-            console.error("❌ Lỗi tải sản phẩm:", xhr.status, xhr.statusText);
-            $("#showProduct").html('<div class="text-center text-danger">Không thể tải danh sách sản phẩm!</div>');
-        }
-    });
-}
-
-$(document).ready(function() {
-    console.log("🛒 Đang tải danh sách sản phẩm...");
-    showProduct();
-});
-</script>
