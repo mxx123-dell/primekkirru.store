@@ -1,31 +1,39 @@
 <?php
-// db.php - Dev by CMSNT.CO
+// db.php - Dev by CMSNT.CO (Fixed & Optimized for Render / PHP 8.2+)
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 class DB {
-    private static ?\PgSql\Connection $conn = null;
+    private static $conn = null; // PostgreSQL connection resource
 
-    public static function connect(): \PgSql\Connection {
+    public static function connect() {
         if (!self::$conn) {
-            $host = getenv('DB_HOST') ?: 'dpg-d3roc9ruibrs73b64adg-a'; // Render host
-            $user = getenv('DB_USERNAME') ?: 'primekkirru_db_user';     // Render username
-            $pass = getenv('DB_PASSWORD') ?: 'hqw9ByoG2YNzjJFjIhZe0JMut3dWYcxt';        // Render password
+            $host = getenv('DB_HOST') ?: 'dpg-d3roc9ruibrs73b64adg-a';
+            $user = getenv('DB_USERNAME') ?: 'primekkirru_db_user';
+            $pass = getenv('DB_PASSWORD') ?: 'hqw9ByoG2YNzjJFjIhZe0JMut3dWYcxt';
             $db   = getenv('DB_DATABASE') ?: 'primekkirru_db';
             $port = getenv('DB_PORT') ?: '5432';
 
-            $conn_string = "host=$host port=$port dbname=$db user=$user password=$pass";
+            $conn_string = "host={$host} port={$port} dbname={$db} user={$user} password={$pass}";
+
             $conn = @pg_connect($conn_string);
             if (!$conn) {
-                die("❌ Cannot connect to PostgreSQL! 
-Host: $host, Port: $port, Database: $db, User: $user, Password: $pass");
+                error_log("❌ Cannot connect to PostgreSQL! Host: $host, DB: $db, User: $user");
+                die("Database connection failed. Please check credentials or Render config.");
             }
+
+            // Giảm load CPU/memory khi idle
+            register_shutdown_function(function() {
+                if (self::$conn) {
+                    @pg_close(self::$conn);
+                    self::$conn = null;
+                }
+            });
 
             self::$conn = $conn;
         }
-
         return self::$conn;
     }
 
@@ -33,7 +41,8 @@ Host: $host, Port: $port, Database: $db, User: $user, Password: $pass");
         $conn = self::connect();
         $result = @pg_query($conn, $sql);
         if (!$result) {
-            error_log("SQL Error: " . pg_last_error($conn) . " in query: $sql");
+            $error = pg_last_error($conn);
+            error_log("SQL Error: {$error} | Query: {$sql}");
         }
         return $result;
     }
@@ -61,7 +70,7 @@ Host: $host, Port: $port, Database: $db, User: $user, Password: $pass");
 
     public static function close(): void {
         if (self::$conn) {
-            pg_close(self::$conn);
+            @pg_close(self::$conn);
             self::$conn = null;
         }
     }
@@ -69,11 +78,11 @@ Host: $host, Port: $port, Database: $db, User: $user, Password: $pass");
     public function site(string $key): ?string {
         $conn = self::connect();
         $key_safe = pg_escape_string($conn, $key);
-        $result = self::fetch("SELECT value FROM settings WHERE name = '$key_safe' LIMIT 1");
+        $result = self::fetch("SELECT value FROM settings WHERE name = '{$key_safe}' LIMIT 1");
         return $result['value'] ?? null;
     }
 
-    // Thêm phương thức cũ để tương thích helper.php
+    // Giữ nguyên API cũ để tương thích với helper.php
     public function get_row(string $sql) {
         return $this->fetch($sql);
     }
