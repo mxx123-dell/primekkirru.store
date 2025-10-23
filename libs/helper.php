@@ -4,27 +4,36 @@ if (!defined('IN_SITE')) die('The Request Not Found');
 if (!class_exists('DB')) require_once __DIR__ . '/db.php';
 if (session_status() === PHP_SESSION_NONE) @session_start();
 
-$CMSNT = new DB();
+try {
+    $CMSNT = new DB();
+} catch (Throwable $e) {
+    error_log('DB Init Error: ' . $e->getMessage());
+    $CMSNT = null; // Fallback safe mode
+}
 
 // Set timezone
-if (method_exists($CMSNT, 'site')) {
+if ($CMSNT && method_exists($CMSNT, 'site')) {
     $tz = $CMSNT->site('timezone') ?: 'Asia/Bangkok';
-    date_default_timezone_set($tz);
+    @date_default_timezone_set($tz);
+} else {
+    @date_default_timezone_set('Asia/Bangkok');
 }
 
 // Chặn banned IP
-if($CMSNT->fetch("SELECT * FROM banned_ips WHERE ip = '".myip()."' AND banned = 1")){
-    die('<div style="text-align:center;margin-top:50px"><h2>404 Not Found</h2><p>Access Denied</p></div>');
-}
-
-// Hàm __() để maintenance.php không lỗi
-if (!function_exists('__')) {
-    function __($string) {
-        return $string;
+try {
+    if ($CMSNT && $CMSNT->fetch("SELECT * FROM banned_ips WHERE ip = '".myip()."' AND banned = 1")) {
+        die('<div style="text-align:center;margin-top:50px"><h2>404 Not Found</h2><p>Access Denied</p></div>');
     }
+} catch (Throwable $e) {
+    error_log("Check banned IP failed: " . $e->getMessage());
 }
 
-// Các helper cơ bản
+// Hàm __() để tránh lỗi khi thiếu ngôn ngữ
+if (!function_exists('__')) {
+    function __($string) { return $string; }
+}
+
+// Helper cơ bản
 function myip() {
     if (!empty($_SERVER['HTTP_CLIENT_IP'])) $ip = $_SERVER['HTTP_CLIENT_IP'];
     elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
@@ -40,38 +49,41 @@ function check_string($data) {
 }
 
 function check_path($data) {
-    return str_replace(array('../', './', '..\\', '.\\'), '', $data);
+    return str_replace(['../', './', '..\\', '.\\'], '', $data);
 }
 
 function site($key) {
     global $CMSNT;
-    return $CMSNT->site($key);
+    return $CMSNT ? $CMSNT->site($key) : null;
 }
 
 function curl_get($url){
-    $ch=curl_init();
-    curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
-    curl_setopt($ch,CURLOPT_URL,$url);
-    curl_setopt($ch,CURLOPT_TIMEOUT,10);
-    curl_setopt($ch,CURLOPT_SSL_VERIFYPEER,false);
-    $data=curl_exec($ch);
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_URL => $url,
+        CURLOPT_TIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => false
+    ]);
+    $data = curl_exec($ch);
     curl_close($ch);
     return $data;
 }
 
-function curl_post($url,$data=array(),$headers=[]){
-    $ch=curl_init($url);
-    curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
-    curl_setopt($ch,CURLOPT_CUSTOMREQUEST,'POST');
-    curl_setopt($ch,CURLOPT_POSTFIELDS,is_array($data)?http_build_query($data):$data);
-    curl_setopt($ch,CURLOPT_HTTPHEADER,$headers);
-    curl_setopt($ch,CURLOPT_TIMEOUT,15);
-    curl_setopt($ch,CURLOPT_SSL_VERIFYPEER,false);
-    $result=curl_exec($ch);
-    $err=curl_error($ch);
+function curl_post($url,$data=[],$headers=[]){
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CUSTOMREQUEST => 'POST',
+        CURLOPT_POSTFIELDS => is_array($data) ? http_build_query($data) : $data,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_SSL_VERIFYPEER => false
+    ]);
+    $result = curl_exec($ch);
+    $err = curl_error($ch);
     curl_close($ch);
-    if($err) return false;
-    return $result;
+    return $err ? false : $result;
 }
 
 function format_date($time) {
@@ -86,13 +98,19 @@ function gettime() {
     return date("Y-m-d H:i:s");
 }
 
-function BASE_URL($url) {
+function BASE_URL($url = '') {
     global $CMSNT;
-    return $CMSNT->site('domain') . $url;
+    $domain = $CMSNT ? $CMSNT->site('domain') : '';
+    if (empty($domain)) {
+        $scheme = $_SERVER['REQUEST_SCHEME'] ?? 'https';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $domain = "{$scheme}://{$host}";
+    }
+    return rtrim($domain, '/') . '/' . ltrim($url, '/');
 }
 
 function redirect($url) {
-    header('Location: ' . $url);
+    @header('Location: ' . $url);
     exit();
 }
 
@@ -108,13 +126,15 @@ function msg_error($text, $url = '', $time = 1000) {
     echo '</script>';
 }
 
-// Auto ping Render
+// Auto ping Render để tránh sleep
 if (!function_exists('auto_ping_render')) {
     function auto_ping_render() {
         $pid_file = sys_get_temp_dir() . '/render_ping.pid';
         $interval = 600; // 10 phút
-        $url = (isset($_SERVER['REQUEST_SCHEME']) ? $_SERVER['REQUEST_SCHEME'] : 'https') . '://' . ($_SERVER['HTTP_HOST'] ?? '');
-        if (empty($url) || $url === 'https://') return false;
+        $scheme = $_SERVER['REQUEST_SCHEME'] ?? 'https';
+        $host = $_SERVER['HTTP_HOST'] ?? '';
+        if (empty($host)) return false;
+        $url = "{$scheme}://{$host}";
         if (!file_exists($pid_file) || (time() - @filemtime($pid_file)) > $interval) {
             @file_put_contents($pid_file, time());
             @file_get_contents($url);
