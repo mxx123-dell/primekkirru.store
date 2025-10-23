@@ -1,5 +1,6 @@
 <?php if (!defined('IN_SITE')) {
     die('The Request Not Found');
+    require_once(__DIR__ . '/../../../libs/lang.php');
 } ?>
 
 <style>
