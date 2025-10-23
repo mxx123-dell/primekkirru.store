@@ -3,9 +3,6 @@ if (!defined('IN_SITE')) {
     die('The Request Not Found');
 }
 
-/* ==========================================
-   ✅ BỔ SUNG HÀM get_url() NẾU CHƯA CÓ
-   ========================================== */
 if (!function_exists('get_url')) {
     function get_url() {
         $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || 
@@ -54,7 +51,6 @@ if (!function_exists('get_url')) {
 
     <!-- jQuery -->
     <script src="<?= BASE_URL('resources'); ?>/js/jquery.js"></script>
-    <!-- Bạn có thể tắt dòng dưới nếu bị trùng jQuery -->
     <script src="<?= BASE_URL('public/js/jquery-3.6.0.js'); ?>"></script>
 
     <!-- Font Awesome -->
@@ -107,8 +103,15 @@ if (!function_exists('get_url')) {
     }
     </style>
 
+    <!-- ✅ Auto-hide loader when page loaded -->
+    <script>
+    window.addEventListener("load", function() {
+        const loader = document.getElementById("loading-center");
+        if (loader) loader.style.display = "none";
+    });
+    </script>
+
     <!-- Extra header content -->
     <?= $body['header'] ?? ''; ?>
     <?= $CMSNT->site('javascript_header'); ?>
 </head>
-<!-- Dev By CMSNT.CO | FB.COM/CMSNT.CO | ZALO.ME/0947838128 | MMO Solution -->
