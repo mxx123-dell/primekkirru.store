@@ -37,6 +37,7 @@ class DB {
         return self::$conn;
     }
 
+    // Thực thi truy vấn
     public static function query(string $sql) {
         $conn = self::connect();
         $result = @pg_query($conn, $sql);
@@ -47,11 +48,13 @@ class DB {
         return $result;
     }
 
+    // Lấy 1 dòng
     public static function fetch(string $sql) {
         $result = self::query($sql);
         return $result ? pg_fetch_assoc($result) : null;
     }
 
+    // Lấy nhiều dòng (fetchAll)
     public static function fetchAll(string $sql): array {
         $result = self::query($sql);
         $data = [];
@@ -63,11 +66,13 @@ class DB {
         return $data;
     }
 
+    // Đếm số dòng
     public static function numRows(string $sql): int {
         $result = self::query($sql);
         return $result ? pg_num_rows($result) : 0;
     }
 
+    // Đóng kết nối
     public static function close(): void {
         if (self::$conn) {
             @pg_close(self::$conn);
@@ -75,6 +80,7 @@ class DB {
         }
     }
 
+    // Lấy giá trị cấu hình từ bảng settings
     public function site(string $key): ?string {
         $conn = self::connect();
         $key_safe = pg_escape_string($conn, $key);
@@ -82,12 +88,17 @@ class DB {
         return $result['value'] ?? null;
     }
 
-    // Giữ nguyên API cũ để tương thích với helper.php
+    // ====== Các hàm tương thích CMSNT ======
     public function get_row(string $sql) {
         return $this->fetch($sql);
     }
 
     public function get_rows(string $sql) {
+        return $this->fetchAll($sql);
+    }
+
+    // 🟢 Thêm hàm get_list() để tương thích code cũ
+    public function get_list(string $sql): array {
         return $this->fetchAll($sql);
     }
 }
