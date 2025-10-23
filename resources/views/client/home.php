@@ -1,8 +1,9 @@
-<?php
+<?php 
 if (!defined('IN_SITE')) {
     die('The Request Not Found');
 }
 
+// ====== CẤU HÌNH SEO ======
 $body = [
     'title' => $CMSNT->site('title'),
     'desc'   => $CMSNT->site('description'),
@@ -11,6 +12,8 @@ $body = [
 $body['header'] = '';
 $body['footer'] = '';
 
+
+// ====== XỬ LÝ LOGIN ======
 if ($CMSNT->site('sign_view_product') == 0) {
     if (isset($_COOKIE["token"])) {
         $getUser = $CMSNT->get_row("SELECT * FROM `users` WHERE `token` = '" . check_string($_COOKIE['token']) . "'");
@@ -27,6 +30,7 @@ if ($CMSNT->site('sign_view_product') == 0) {
     require_once(__DIR__ . '/../../../models/is_user.php');
 }
 
+// ====== CÁC KIỂM TRA BẮT BUỘC ======
 if ($CMSNT->site('status_is_change_password') == 1) {
     if (isset($getUser) && $getUser['change_password'] == 0) {
         redirect(base_url('client/is-change-password'));
@@ -44,6 +48,7 @@ if (isset($_GET['category'])) {
     $categoryINT = check_string($_GET['category']);
 }
 
+// ====== LOAD GIAO DIỆN ======
 require_once(__DIR__ . '/header.php');
 require_once(__DIR__ . '/sidebar.php');
 ?>
@@ -52,6 +57,7 @@ require_once(__DIR__ . '/sidebar.php');
     <div class="container-fluid">
         <div class="row">
 
+            <!-- ⚡ THÔNG BÁO HỆ THỐNG -->
             <?php if ($CMSNT->site('thongbao') != ''): ?>
                 <div class="col-lg-12">
                     <div class="alert bg-white alert-primary" role="alert">
@@ -65,6 +71,7 @@ require_once(__DIR__ . '/sidebar.php');
 
             <?= $CMSNT->site('html_top_product'); ?>
 
+            <!-- ⚡ GIAO DỊCH GẦN ĐÂY -->
             <?php if ($CMSNT->site('status_giao_dich_gan_day') == 1 && $CMSNT->site('position_gd_gan_day') == 1) { ?>
                 <div class="col-lg-6">
                     <div class="card card-block card-stretch card-height">
@@ -100,13 +107,22 @@ require_once(__DIR__ . '/sidebar.php');
                 </div>
             <?php } ?>
 
-            <?php require_once(__DIR__ . '/shop-account.php'); ?>
+            <!-- ⚡ DANH SÁCH SẢN PHẨM -->
+            <div class="col-lg-12">
+                <div id="showProduct" class="row text-center">
+                    <div class="col-12 py-5">
+                        <img src="<?=BASE_URL('public/datum/assets/images/loader.gif');?>" width="80">
+                        <p class="text-muted mt-3">Đang tải sản phẩm...</p>
+                    </div>
+                </div>
+            </div>
 
         </div>
     </div>
 </div>
 
 <?php
+// ====== POPUP THÔNG BÁO ======
 if (isset($_POST['hide_notice_popup'])) {
     $_SESSION['hide_notice_popup'] = 1;
     die('<script type="text/javascript">window.history.back().location.reload();</script>');
@@ -122,9 +138,7 @@ if (isset($_POST['hide_notice_popup'])) {
                         <h5 class="modal-title"><?= __('Thông báo'); ?></h5>
                     </div>
                     <form action="" method="POST">
-                        <div class="modal-body">
-                            <?= $CMSNT->site('notice_popup'); ?>
-                        </div>
+                        <div class="modal-body"><?= $CMSNT->site('notice_popup'); ?></div>
                         <div class="modal-footer">
                             <button type="submit" class="btn btn-primary" name="hide_notice_popup"><?= __('Không hiển thị lại'); ?></button>
                             <button type="button" class="btn btn-danger" data-dismiss="modal"><?= __('Đóng'); ?></button>
@@ -145,14 +159,26 @@ if (isset($_POST['hide_notice_popup'])) {
 
 <?php require_once(__DIR__ . '/footer.php'); ?>
 
-<!-- ✅ FIX: Thêm auto load shop -->
+
+<!-- ⚙️ AUTO LOAD SẢN PHẨM -->
 <script>
+function showProduct() {
+    $.ajax({
+        url: "<?= BASE_URL('ajaxs/client/showProduct.php'); ?>",
+        type: "GET",
+        dataType: "html",
+        success: function(data) {
+            $("#showProduct").html(data);
+        },
+        error: function(xhr) {
+            console.error("❌ Lỗi tải sản phẩm:", xhr.status, xhr.statusText);
+            $("#showProduct").html('<div class="text-center text-danger">Không thể tải danh sách sản phẩm!</div>');
+        }
+    });
+}
+
 $(document).ready(function() {
-    if (typeof showProduct === "function") {
-        console.log("✅ Tự động tải sản phẩm...");
-        showProduct();
-    } else {
-        console.error("⚠️ Lỗi: Hàm showProduct() chưa được load!");
-    }
+    console.log("🛒 Đang tải danh sách sản phẩm...");
+    showProduct();
 });
 </script>
