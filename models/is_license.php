@@ -2,147 +2,186 @@
 if (!defined('IN_SITE')) {
     die('The Request Not Found');
 }
-$CMSNT = new DB();
+
+// Ensure DB wrapper exists
+if (!class_exists('DB')) {
+    require_once __DIR__ . '/../libs/db.php';
+}
+
+try {
+    $CMSNT = new DB();
+} catch (Throwable $e) {
+    error_log('is_license: DB init error: '.$e->getMessage());
+    $CMSNT = null; // continue in safe mode
+}
+
+/**
+ * Simple whitelist check (local development / trusted host)
+ */
 function checkWhiteDomain($domain){
-    $domain_white = [$_SERVER['SERVER_NAME']];
+    $current = $_SERVER['SERVER_NAME'] ?? ($_SERVER['HTTP_HOST'] ?? '');
+    $domain_white = [$current];
     foreach($domain_white as $row){
-        if($row == $domain){
+        if($row === $domain){
             return true;
         }
     }
     return false;
 }
+
+/**
+ * Contact remote license server (with safe timeouts / fallbacks)
+ */
 function CMSNT_check_license($licensekey, $localkey='') {
+    // Use global config if available
     global $config;
-    $whmcsurl = 'https://client.cmsnt.co/';
-    $licensing_secret_key = $config['project'];
+    $whmcsurl = 'https://client.cmsnt.co/'; // remote endpoint base
+    $licensing_secret_key = $config['project'] ?? getenv('PROJECT') ?? '';
     $localkeydays = 15;
     $allowcheckfaildays = 5;
     $check_token = time() . md5(mt_rand(100000000, mt_getrandmax()) . $licensekey);
     $checkdate = date("Ymd");
-    $domain = $_SERVER['SERVER_NAME'];
-    $usersip = isset($_SERVER['SERVER_ADDR']) ? $_SERVER['SERVER_ADDR'] : $_SERVER['LOCAL_ADDR'];
+    $domain = $_SERVER['SERVER_NAME'] ?? ($_SERVER['HTTP_HOST'] ?? '');
+    $usersip = $_SERVER['SERVER_ADDR'] ?? ($_SERVER['LOCAL_ADDR'] ?? '127.0.0.1');
     $dirpath = dirname(__FILE__);
     $verifyfilepath = 'modules/servers/licensing/verify.php';
+
     $localkeyvalid = false;
+    $localkeyresults = [];
+
+    // Validate localkey if provided (existing behavior)
     if ($localkey) {
-        $localkey = str_replace("\n", '', $localkey); # Remove the line breaks
-        $localdata = substr($localkey, 0, strlen($localkey) - 32); # Extract License Data
-        $md5hash = substr($localkey, strlen($localkey) - 32); # Extract MD5 Hash
-        if ($md5hash == md5($localdata . $licensing_secret_key)) {
-            $localdata = strrev($localdata); # Reverse the string
-            $md5hash = substr($localdata, 0, 32); # Extract MD5 Hash
-            $localdata = substr($localdata, 32); # Extract License Data
+        $localkey = str_replace(["\r","\n"], '', $localkey);
+        $localdata = substr($localkey, 0, max(0, strlen($localkey) - 32));
+        $md5hash = substr($localkey, max(0, strlen($localkey) - 32));
+        if ($md5hash === md5($localdata . $licensing_secret_key)) {
+            $localdata = strrev($localdata);
+            $md5hash_inner = substr($localdata, 0, 32);
+            $localdata = substr($localdata, 32);
             $localdata = base64_decode($localdata);
             $localkeyresults = json_decode($localdata, true);
-            $originalcheckdate = $localkeyresults['checkdate'];
-            if ($md5hash == md5($originalcheckdate . $licensing_secret_key)) {
+            $originalcheckdate = $localkeyresults['checkdate'] ?? '';
+            if ($md5hash_inner === md5($originalcheckdate . $licensing_secret_key)) {
                 $localexpiry = date("Ymd", mktime(0, 0, 0, date("m"), date("d") - $localkeydays, date("Y")));
                 if ($originalcheckdate > $localexpiry) {
                     $localkeyvalid = true;
                     $results = $localkeyresults;
-                    $validdomains = explode(',', $results['validdomain']);
-                    if (!in_array($_SERVER['SERVER_NAME'], $validdomains)) {
+                    // validate domain/ip/dir if present
+                    $validdomains = explode(',', $results['validdomain'] ?? '');
+                    if (!in_array($domain, $validdomains)) {
                         $localkeyvalid = false;
-                        $localkeyresults['status'] = "Invalid";
-                        $results = array();
+                        $results = [];
                     }
-                    $validips = explode(',', $results['validip']);
+                    $validips = explode(',', $results['validip'] ?? '');
                     if (!in_array($usersip, $validips)) {
                         $localkeyvalid = false;
-                        $localkeyresults['status'] = "Invalid";
-                        $results = array();
+                        $results = [];
                     }
-                    $validdirs = explode(',', $results['validdirectory']);
+                    $validdirs = explode(',', $results['validdirectory'] ?? '');
                     if (!in_array($dirpath, $validdirs)) {
                         $localkeyvalid = false;
-                        $localkeyresults['status'] = "Invalid";
-                        $results = array();
+                        $results = [];
                     }
                 }
             }
         }
     }
+
+    // If not valid locally, perform remote check (safe)
     if (!$localkeyvalid) {
         $responseCode = 0;
-        $postfields = array(
+        $postfields = [
             'licensekey' => $licensekey,
             'domain' => $domain,
             'ip' => $usersip,
             'dir' => $dirpath,
-        );
+        ];
         if ($check_token) $postfields['check_token'] = $check_token;
-        $query_string = '';
-        foreach ($postfields AS $k=>$v) {
-            $query_string .= $k.'='.urlencode($v).'&';
-        }
-        if (function_exists('curl_exec')) {
+
+        $query_string = http_build_query($postfields);
+
+        $data = '';
+        // Prefer curl with timeouts
+        if (function_exists('curl_init')) {
             $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $whmcsurl . $verifyfilepath);
+            curl_setopt($ch, CURLOPT_URL, rtrim($whmcsurl, '/') . '/' . ltrim($verifyfilepath, '/'));
             curl_setopt($ch, CURLOPT_POST, 1);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $query_string);
             curl_setopt($ch, CURLOPT_TIMEOUT, 4);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-            $data = curl_exec($ch);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            $data = @curl_exec($ch);
             $responseCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErr = curl_error($ch);
             curl_close($ch);
+            if ($curlErr) {
+                error_log('CMSNT_check_license curl error: ' . $curlErr);
+            }
         } else {
-            $responseCodePattern = '/^HTTP\/\d+\.\d+\s+(\d+)/';
-            $fp = @fsockopen($whmcsurl, 80, $errno, $errstr, 5);
+            // Fallback to fsockopen, non-blocking style with short timeout
+            $urlParts = parse_url($whmcsurl);
+            $host = $urlParts['host'] ?? $whmcsurl;
+            $port = $urlParts['scheme'] === 'https' ? 443 : 80;
+            $path = (isset($urlParts['path']) ? rtrim($urlParts['path'],'/') : '') . '/' . ltrim($verifyfilepath, '/');
+            $fp = @fsockopen(($urlParts['scheme']==='https'?'ssl://':'') . $host, $port, $errno, $errstr, 3);
             if ($fp) {
-                $newlinefeed = "\r\n";
-                $header = "POST ".$whmcsurl . $verifyfilepath . " HTTP/1.0" . $newlinefeed;
-                $header .= "Host: ".$whmcsurl . $newlinefeed;
-                $header .= "Content-type: application/x-www-form-urlencoded" . $newlinefeed;
-                $header .= "Content-length: ".@strlen($query_string) . $newlinefeed;
-                $header .= "Connection: close" . $newlinefeed . $newlinefeed;
-                $header .= $query_string;
-                $data = $line = '';
-                @stream_set_timeout($fp, 20);
-                @fputs($fp, $header);
-                $status = @socket_get_status($fp);
-                while (!@feof($fp)&&$status) {
-                    $line = @fgets($fp, 1024);
-                    $patternMatches = array();
-                    if (!$responseCode
-                        && preg_match($responseCodePattern, trim($line), $patternMatches)
-                    ) {
-                        $responseCode = (empty($patternMatches[1])) ? 0 : $patternMatches[1];
-                    }
-                    $data .= $line;
-                    $status = @socket_get_status($fp);
+                $out = "POST {$path} HTTP/1.1\r\n";
+                $out .= "Host: {$host}\r\n";
+                $out .= "Content-Type: application/x-www-form-urlencoded\r\n";
+                $out .= "Content-Length: " . strlen($query_string) . "\r\n";
+                $out .= "Connection: Close\r\n\r\n";
+                $out .= $query_string;
+                stream_set_timeout($fp, 4);
+                fwrite($fp, $out);
+                $response = '';
+                while (!feof($fp)) {
+                    $response .= fgets($fp, 1024);
                 }
-                @fclose ($fp);
+                fclose($fp);
+                // try to extract body
+                $parts = preg_split("/\r\n\r\n/", $response, 2);
+                if (isset($parts[1])) $data = $parts[1];
+                // attempt to parse status line
+                if (preg_match('/HTTP\/\d+\.\d+\s+(\d+)/', $response, $m)) {
+                    $responseCode = intval($m[1]);
+                }
+            } else {
+                error_log("CMSNT_check_license fsockopen failed: $errno $errstr");
             }
         }
-        if ($responseCode != 200) {
-            $localexpiry = date("Ymd", mktime(0, 0, 0, date("m"), date("d") - ($localkeydays + $allowcheckfaildays), date("Y")));
-            if ($originalcheckdate > $localexpiry) {
+
+        // handle response
+        if ($responseCode != 200 || !$data) {
+            // fallback to localkeyresults if still valid recently
+            $localexpiry = date("Ymd", mktime(0,0,0, date("m"), date("d") - ($localkeydays + $allowcheckfaildays), date("Y")));
+            if (!empty($localkeyresults) && ($localkeyresults['checkdate'] ?? '') > $localexpiry) {
                 $results = $localkeyresults;
             } else {
-                $results = array();
+                $results = [];
                 $results['status'] = "Invalid";
                 $results['description'] = "Remote Check Failed";
                 return $results;
             }
         } else {
+            // parse simple XML-like <tag>value</tag> pairs into array as original
             preg_match_all('/<(.*?)>([^<]+)<\/\\1>/i', $data, $matches);
-            $results = array();
-            foreach ($matches[1] AS $k=>$v) {
+            $results = [];
+            foreach ($matches[1] as $k => $v) {
                 $results[$v] = $matches[2][$k];
             }
         }
-        if (!is_array($results)) {
-            die("Invalid License Server Response");
-        }
-        if (isset($results['md5hash'])) {
+
+        // validate md5 if provided
+        if (isset($results['md5hash']) && isset($licensing_secret_key)) {
             if ($results['md5hash'] != md5($licensing_secret_key . $check_token)) {
                 $results['status'] = "Invalid";
                 $results['description'] = "MD5 Checksum Verification Failed";
                 return $results;
             }
         }
-        if ($results['status'] == "Active") {
+
+        if (($results['status'] ?? '') === "Active") {
             $results['checkdate'] = $checkdate;
             $data_encoded = json_encode($results);
             $data_encoded = base64_encode($data_encoded);
@@ -154,118 +193,149 @@ function CMSNT_check_license($licensekey, $localkey='') {
         }
         $results['remotecheck'] = true;
     }
-    unset($postfields,$data,$matches,$whmcsurl,$licensing_secret_key,$checkdate,$usersip,$localkeydays,$allowcheckfaildays,$md5hash);
+
+    // cleanup
+    unset($postfields, $data, $matches, $whmcsurl, $licensing_secret_key, $checkdate, $usersip, $localkeydays, $allowcheckfaildays);
     return $results;
 }
+
+/**
+ * Convenience wrapper
+ */
 function checkLicenseKey($licensekey){
     $results = CMSNT_check_license($licensekey, '');
-    if($results['status'] == "Active"){   
-        $results['msg'] = "Giấy phép hợp lệ";
-        $results['status'] = true;
-        return $results;
+    $out = [
+        'status' => false,
+        'msg' => 'Không tìm thấy giấy phép này trong hệ thống'
+    ];
+    $status = $results['status'] ?? '';
+    if ($status === "Active") {
+        $out['msg'] = "Giấy phép hợp lệ";
+        $out['status'] = true;
+        $out = array_merge($out, $results);
+        return $out;
     }
-    if($results['status'] == "Invalid"){   
-        $results['msg'] = "Giấy phép kích hoạt không hợp lệ";
-        $results['status'] = false;
-        return $results;
+    if ($status === "Invalid") {
+        $out['msg'] = $results['description'] ?? "Giấy phép kích hoạt không hợp lệ";
+        return $out;
     }
-    if($results['status'] == "Expired"){   
-        $results['msg'] = "Giấy phép mã nguồn đã hết hạn, vui lòng gia hạn ngay";
-        $results['status'] = false;
-        return $results;
+    if ($status === "Expired") {
+        $out['msg'] = "Giấy phép mã nguồn đã hết hạn, vui lòng gia hạn ngay";
+        return $out;
     }
-    if($results['status'] == "Suspended"){   
-        $results['msg'] = "Giấy phép của bạn đã bị tạm ngưng";
-        $results['status'] = false;
-        return $results;
+    if ($status === "Suspended") {
+        $out['msg'] = "Giấy phép của bạn đã bị tạm ngưng";
+        return $out;
     }
-    $results['msg'] = "Không tìm thấy giấy phép này trong hệ thống";
-    $results['status'] = false;
-    return $results;
+    return $out;
 }
 
 
-if(checkWhiteDomain($_SERVER['SERVER_NAME']) != true){
-    if($CMSNT->site('license_key') == '' || checkLicenseKey($CMSNT->site('license_key'))['status'] != true){
-        if (isset($_POST['btnSaveLicense'])) {
-            if ($CMSNT->site('status_demo') != 0) {
-                die('<script type="text/javascript">if(!alert("Không được dùng chức năng này vì đây là trang web demo.")){window.history.back().location.reload();}</script>');
-            }
+// MAIN: show license form only when domain not white and license not active
+$serverName = $_SERVER['SERVER_NAME'] ?? ($_SERVER['HTTP_HOST'] ?? '');
+$site_license = null;
+try {
+    if ($CMSNT && method_exists($CMSNT,'site')) {
+        $site_license = $CMSNT->site('license_key');
+    }
+} catch (Throwable $e) {
+    error_log('is_license: cannot read site license: '.$e->getMessage());
+    $site_license = '';
+}
+
+if (!checkWhiteDomain($serverName)) {
+    $check = checkLicenseKey($site_license ?: '');
+    if (!($check['status'] ?? false)) {
+        // handle POST save (admin submitting license)
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btnSaveLicense'])) {
+            // Demo restriction
+            try {
+                if ($CMSNT && $CMSNT->site('status_demo') != 0) {
+                    die('<script type="text/javascript">alert("Không được dùng chức năng này vì đây là trang web demo.");history.back();</script>');
+                }
+            } catch (Throwable $e) {}
+
+            // Save posted fields to settings
             foreach ($_POST as $key => $value) {
-                $CMSNT->update("settings", array(
-                    'value' => $value
-                ), " `name` = '$key' ");
+                if ($key === 'btnSaveLicense') continue;
+                $k = check_string($key);
+                $v = check_string($value);
+                try {
+                    if ($CMSNT) $CMSNT->update("settings", ['value' => $v], " `name` = '$k' ");
+                } catch (Throwable $e) {
+                    error_log('is_license: update setting failed: '.$e->getMessage());
+                }
             }
-            $checkKey = checkLicenseKey($CMSNT->site('license_key'));
-            if($checkKey['status'] != true){
-                die('<script type="text/javascript">if(!alert("'.$checkKey['msg'].'")){window.history.back().location.reload();}</script>');
+            // recheck license
+            try {
+                $site_license = $CMSNT ? $CMSNT->site('license_key') : '';
+                $checkKey = checkLicenseKey($site_license ?: '');
+                if (!($checkKey['status'] ?? false)) {
+                    die('<script type="text/javascript">alert("'.$checkKey['msg'].'");history.back();</script>');
+                }
+                die('<script type="text/javascript">alert("Lưu thành công !");history.back();</script>');
+            } catch (Throwable $e) {
+                error_log('is_license: post-save check error: '.$e->getMessage());
+                die('<script type="text/javascript">alert("Lưu thất bại, vui lòng thử lại");history.back();</script>');
             }
-            die('<script type="text/javascript">if(!alert("Lưu thành công !")){window.history.back().location.reload();}</script>');
-        } ?>
+        }
 
-<div class="content-wrapper">
-    <section class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1>Cấu hình thông tin bản quyền</h1>
-                </div>
-            </div>
-        </div>
-    </section>
-    <section class="content">
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card card-outline card-primary">
-                    <div class="card-header">
-                        <h3 class="card-title">THÔNG TIN BẢN QUYỀN CODE</h3>
-                        <div class="card-tools">
-                            <button type="button" class="btn btn-tool" data-card-widget="collapse"><i
-                                    class="fas fa-minus"></i>
-                            </button>
+        // Show admin license form (safe rendering)
+        ?>
+        <div class="content-wrapper">
+            <section class="content-header">
+                <div class="container-fluid">
+                    <div class="row mb-2">
+                        <div class="col-sm-6">
+                            <h1>Cấu hình thông tin bản quyền</h1>
                         </div>
                     </div>
-                    <div class="card-body">
-                        <form action="" method="POST">
-                            <div class="form-group row">
-                                <label class="col-sm-3 col-form-label">Mã bản quyền (license key)</label>
-                                <div class="col-sm-9">
-                                    <div class="form-line">
-                                        <input type="text" name="license_key" placeholder="Nhập mã bản quyền của bạn để sử dụng chức năng này" value="<?=$CMSNT->site('license_key');?>"
-                                            class="form-control" required>
-                                    </div>
-                                </div>
+                </div>
+            </section>
+            <section class="content">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card card-outline card-primary">
+                            <div class="card-header">
+                                <h3 class="card-title">THÔNG TIN BẢN QUYỀN CODE</h3>
                             </div>
-                            <button type="submit" name="btnSaveLicense" class="btn btn-primary btn-block">
-                                <span>LƯU</span></button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card card-outline card-primary">
-                    <div class="card-header">
-                        <h3 class="card-title">HƯỚNG DẪN</h3>
-                        <div class="card-tools">
-                            <button type="button" class="btn btn-tool" data-card-widget="collapse"><i
-                                    class="fas fa-minus"></i>
-                            </button>
+                            <div class="card-body">
+                                <form action="" method="POST">
+                                    <div class="form-group row">
+                                        <label class="col-sm-3 col-form-label">Mã bản quyền (license key)</label>
+                                        <div class="col-sm-9">
+                                            <div class="form-line">
+                                                <input type="text" name="license_key" placeholder="Nhập mã bản quyền của bạn để sử dụng chức năng này"
+                                                       value="<?=htmlspecialchars($site_license ?? '')?>" class="form-control" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button type="submit" name="btnSaveLicense" class="btn btn-primary btn-block">
+                                        <span>LƯU</span></button>
+                                </form>
+                            </div>
                         </div>
                     </div>
-                    <div class="card-body">
-                        <p>Quý khách có thể lấy License key tại đây: <a target="_blank" href="https://client.cmsnt.co/clientarea.php?action=products&module=licensing">https://client.cmsnt.co/clientarea.php?action=products&module=licensing</a></p>
-                        <p>Nếu quý khách mua hàng tại CMSNT.CO mà chưa có License key, vui lòng liên hệ Zalo <b>0947838128</b> để được cấp.</p>
-                        <p>Chỉ áp dúng cho những ai mua code, không hỗ trợ những trường hợp mua lại hay sử dụng mã nguồn lậu.</p>
-                        <p>Nếu bạn chưa mua code tại CMSNT.CO, bạn có thể mua giấy phép tại đây: <a target="_blank" href="https://www.cmsnt.co/2021/12/shopclone6-thiet-ke-website-ban-nguyen.html">CLIENT CMSNT</a></p>
-                        <img src="https://i.imgur.com/VzDVIx0.png" width="100%">
+                    <div class="col-md-6">
+                        <div class="card card-outline card-primary">
+                            <div class="card-header">
+                                <h3 class="card-title">HƯỚNG DẪN</h3>
+                            </div>
+                            <div class="card-body">
+                                <p>Quý khách có thể lấy License key tại đây: <a target="_blank" href="https://client.cmsnt.co/clientarea.php?action=products&module=licensing">CMSNT Client</a></p>
+                                <p>Nếu chưa mua, liên hệ hỗ trợ của CMSNT để cấp key.</p>
+                                <img src="https://i.imgur.com/VzDVIx0.png" width="100%">
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </section>
         </div>
-    </section>
-</div>
-
-<?php 
-    require_once(__DIR__."/../resources/views/admin/footer.php");
+        <?php
+        // include footer if available
+        @include_once __DIR__ . "/../resources/views/admin/footer.php";
+        // stop further execution so admin must activate license first
+        exit;
+    }
+}
 ?>
-<?php die(); } } ?>
