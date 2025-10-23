@@ -3,17 +3,26 @@ if (!defined('IN_SITE')) {
     die('The Request Not Found');
 }
 
-// ====== CẤU HÌNH SEO ======
+/* ==========================
+   NẠP CÁC THƯ VIỆN CẦN THIẾT
+========================== */
+require_once(__DIR__ . '/../../../libs/helper.php');
+require_once(__DIR__ . '/../../../libs/lang.php');
+
+/* ==========================
+   CẤU HÌNH SEO
+========================== */
 $body = [
-    'title' => $CMSNT->site('title'),
-    'desc'   => $CMSNT->site('description'),
+    'title'   => $CMSNT->site('title'),
+    'desc'    => $CMSNT->site('description'),
     'keyword' => $CMSNT->site('keywords')
 ];
 $body['header'] = '';
 $body['footer'] = '';
 
-
-// ====== XỬ LÝ LOGIN ======
+/* ==========================
+   XỬ LÝ LOGIN
+========================== */
 if ($CMSNT->site('sign_view_product') == 0) {
     if (isset($_COOKIE["token"])) {
         $getUser = $CMSNT->get_row("SELECT * FROM `users` WHERE `token` = '" . check_string($_COOKIE['token']) . "'");
@@ -30,25 +39,24 @@ if ($CMSNT->site('sign_view_product') == 0) {
     require_once(__DIR__ . '/../../../models/is_user.php');
 }
 
-// ====== CÁC KIỂM TRA BẮT BUỘC ======
-if ($CMSNT->site('status_is_change_password') == 1) {
-    if (isset($getUser) && $getUser['change_password'] == 0) {
-        redirect(base_url('client/is-change-password'));
+/* ==========================
+   KIỂM TRA CÁC ĐIỀU KIỆN BẮT BUỘC
+========================== */
+if (isset($getUser)) {
+    if ($CMSNT->site('status_is_change_password') == 1 && $getUser['change_password'] == 0) {
+        redirect(BASE_URL('client/is-change-password'));
+    }
+
+    if ($CMSNT->site('is_update_phone') == 1 && $getUser['phone'] == '') {
+        redirect(BASE_URL('client/profile'));
     }
 }
 
-if ($CMSNT->site('is_update_phone') == 1) {
-    if (isset($_SESSION['login']) && $getUser['phone'] == '') {
-        redirect(base_url('client/profile'));
-    }
-}
+$categoryINT = isset($_GET['category']) ? check_string($_GET['category']) : 0;
 
-$categoryINT = 0;
-if (isset($_GET['category'])) {
-    $categoryINT = check_string($_GET['category']);
-}
-
-// ====== LOAD GIAO DIỆN ======
+/* ==========================
+   LOAD GIAO DIỆN
+========================== */
 require_once(__DIR__ . '/header.php');
 require_once(__DIR__ . '/sidebar.php');
 ?>
@@ -78,7 +86,7 @@ require_once(__DIR__ . '/sidebar.php');
                         <div class="card-header d-flex justify-content-between"
                              style="background: <?= $CMSNT->site('theme_color'); ?>;">
                             <div class="header-title">
-                                <h5 class="card-title" style="color:white;"><?= __('ĐƠN HÀNG GẦN ĐÂY'); ?></h5>
+                                <h5 class="card-title text-white"><?= __('ĐƠN HÀNG GẦN ĐÂY'); ?></h5>
                             </div>
                         </div>
                         <div class="card-body p-0" style="height:500px;overflow-x:hidden;overflow-y:auto;">
@@ -122,7 +130,9 @@ require_once(__DIR__ . '/sidebar.php');
 </div>
 
 <?php
-// ====== POPUP THÔNG BÁO ======
+/* ==========================
+   POPUP THÔNG BÁO
+========================== */
 if (isset($_POST['hide_notice_popup'])) {
     $_SESSION['hide_notice_popup'] = 1;
     die('<script type="text/javascript">window.history.back().location.reload();</script>');
@@ -149,9 +159,9 @@ if (isset($_POST['hide_notice_popup'])) {
         </div>
         <script type="text/javascript">
             $(document).ready(function () {
-                setTimeout(e => {
+                setTimeout(() => {
                     $('#notice_popup').modal({keyboard: true, show: true});
-                }, 0);
+                }, 500);
             });
         </script>
     <?php endif ?>
