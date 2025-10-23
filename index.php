@@ -1,5 +1,5 @@
 <?php  
-// ==================== Dev By CMSNT.CO (đã chỉnh sửa bởi ChatGPT) ====================
+// ==================== Dev By CMSNT.CO  ====================
 
 // Bật debug khi cần (xem lỗi trang trắng)
 ini_set('display_errors', 1);
