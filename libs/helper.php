@@ -25,14 +25,27 @@ if (!function_exists('getRowRealtime')) {
         $column = check_string($column);
         $conn = DB::connect();
         $safeValue = is_numeric($value) ? (int)$value : pg_escape_string($conn, (string)$value);
-        return $CMSNT->get_row("SELECT * FROM "{$table}" WHERE "{$column}" = '{$safeValue}' LIMIT 1");
+        $sql = "SELECT * FROM \"{$table}\" WHERE \"{$column}\" = '{$safeValue}' LIMIT 1";
+        return $CMSNT->get_row($sql);
     }
 }
+
 if (!function_exists('getLanguage')) {
     function getLanguage() { return $_COOKIE['language'] ?? 'en'; }
 }
-function msg_success($text,$url='',$time=1000){ echo '<script>swal("Thành công","'.addslashes($text).'","success");'; if($url) echo 'setTimeout(()=>{location.href="'.$url.'"},'.(int)$time.');'; echo '</script>'; }
-function auto_clean_render(){ foreach (glob(sys_get_temp_dir().'/*') as $f){ if(is_file($f) && time()-@filemtime($f) > 3600) @unlink($f);} }
+
+function msg_success($text, $url = '', $time = 1000) {
+    echo '<script>swal("Thành công","' . addslashes($text) . '","success");';
+    if ($url) echo 'setTimeout(()=>{location.href="' . $url . '"},' . (int)$time . ');';
+    echo '</script>';
+}
+
+function auto_clean_render() {
+    foreach (glob(sys_get_temp_dir().'/*') as $f) {
+        if (is_file($f) && time() - @filemtime($f) > 3600) @unlink($f);
+    }
+}
+
 function auto_ping_render(){ $pid=sys_get_temp_dir().'/render_ping.pid'; $interval=600; $scheme=$_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ($_SERVER['REQUEST_SCHEME'] ?? 'https'); $host=$_SERVER['HTTP_HOST'] ?? ''; if(empty($host)) return false; $url = "{$scheme}://{$host}"; if(!file_exists($pid) || (time()-@filemtime($pid))>$interval){ @file_put_contents($pid,time()); @file_get_contents($url);} return true; }
 @auto_clean_render(); @auto_ping_render();
 ?>
