@@ -13,79 +13,57 @@ if (!function_exists('get_url')) {
 }
 ?>
 <!doctype html>
-<html>
-
+<html lang="vi">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title><?= isset($body['title']) ? $body['title'] : $CMSNT->site('title'); ?></title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><?= htmlspecialchars($body['title'] ?? site('title') ?? 'Shop'); ?></title>
 
-    <!-- SEO -->
-    <link rel="canonical" href="<?= htmlspecialchars(get_url(), ENT_QUOTES, 'UTF-8'); ?>" />
-    <meta name="description" content="<?= isset($body['desc']) ? $body['desc'] : $CMSNT->site('desc'); ?>" />
-    <meta name="keywords" content="<?= isset($body['keyword']) ? $body['keyword'] : $CMSNT->site('keyword'); ?>">
-    <meta name="author" content="<?= $CMSNT->site('author'); ?>" />
+<!-- CSS chính -->
+<link rel="stylesheet" href="<?= BASE_URL('public/datum/assets/css/all.min.css'); ?>">
+<link rel="stylesheet" href="<?= BASE_URL('public/datum/assets/css/backend.css'); ?>">
+<link rel="stylesheet" href="<?= BASE_URL('public/datum/assets/css/customize.css'); ?>">
+<link rel="stylesheet" href="<?= BASE_URL('public/datum/assets/css/style.css'); ?>">
 
-    <!-- OG -->
-    <meta property="og:title" content="<?= $CMSNT->site('title'); ?>">
-    <meta property="og:image" content="<?= BASE_URL($CMSNT->site('image')); ?>">
-    <meta property="og:description" content="<?= $CMSNT->site('desc'); ?>">
+<!-- fonts / icons -->
+<link rel="stylesheet" href="<?= BASE_URL('public/datum/assets/fonts/fa-solid-900.woff2'); ?>">
 
-    <!-- Favicon -->
-    <link rel="shortcut icon" href="<?= BASE_URL($CMSNT->site('favicon')); ?>" />
-
-    <!-- CSS -->
-    <link rel="stylesheet" href="<?= BASE_URL('public/datum/assets/css/backend-plugin.min.css'); ?>">
-    <link rel="stylesheet" href="<?= BASE_URL('resources/css/backend.css'); ?>">
-    <link rel="stylesheet" href="<?= BASE_URL('resources/css/customize.css'); ?>">
-
-    <!-- jQuery -->
-    <script src="<?= BASE_URL('resources/js/jquery.js'); ?>"></script>
-    <script src="<?= BASE_URL('public/js/jquery-3.6.0.js'); ?>"></script>
-
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" crossorigin="anonymous" />
-
-    <!-- SweetAlert2 -->
-    <link href="<?= BASE_URL('public/sweetalert2/default.css'); ?>" rel="stylesheet">
-    <script src="<?= BASE_URL('public/sweetalert2/sweetalert2.js'); ?>"></script>
-
-    <!-- Cute Alert -->
-    <link href="<?= BASE_URL('public/cute-alert/style.css'); ?>" rel="stylesheet">
-    <script src="<?= BASE_URL('public/cute-alert/cute-alert.js'); ?>"></script>
-
-    <!-- Lordicon & Recaptcha -->
-    <script src="https://cdn.lordicon.com/xdjxvujz.js"></script>
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-
-    <!-- Theme -->
-    <style>
-    body { <?= $CMSNT->site('font_family'); ?> }
-    .card-product {
-        color: white;
-        background-image: linear-gradient(to right, 
-            <?= $CMSNT->site('theme_color'); ?>, 
-            <?= $CMSNT->site('theme_color2') ?: $CMSNT->site('theme_color'); ?>);
-    }
-    #loading-center {
-        background: url(<?= $CMSNT->site('gif_loader') != '' 
-            ? BASE_URL($CMSNT->site('gif_loader')) 
-            : BASE_URL('public/datum/assets/images/loader.gif'); ?>) no-repeat center;
-        background-size: 20%;
-        width: 100%;
-        height: 100%;
-        position: relative;
-    }
-    </style>
-
-    <!-- Hide loader -->
-    <script>
-    window.addEventListener("load", () => {
-        const loader = document.getElementById("loading-center");
-        if (loader) loader.style.display = "none";
-    });
-    </script>
-
-    <?= $body['header'] ?? ''; ?>
-    <?= $CMSNT->site('javascript_header'); ?>
 </head>
+<body>
+<!-- header content -->
+<header class="site-header">
+    <div class="topbar" style="background:#00c5ff;padding:6px 0;">
+        <div class="container d-flex justify-content-between align-items-center">
+            <div class="logo">
+                <a href="<?= BASE_URL(''); ?>"><img src="<?= BASE_URL($CMSNT->site('logo_dark') ?: 'public/datum/assets/images/logo.png'); ?>" alt="logo" style="height:60px;"></a>
+            </div>
+            <div class="search">
+                <form action="<?= BASE_URL('search'); ?>" method="GET">
+                    <input class="form-control" name="q" placeholder="Tìm kiếm sản phẩm..." style="width:420px;">
+                </form>
+            </div>
+            <div class="user-actions">
+                <!-- cart / user icons -->
+                <a href="<?= BASE_URL('client/cart'); ?>" class="btn btn-sm"><i class="fas fa-shopping-cart"></i></a>
+                <?php if(isset($_SESSION['login'])): ?>
+                    <a href="<?= BASE_URL('client/profile'); ?>" class="btn btn-sm"><?= htmlspecialchars(getRowRealtime('users', $_SESSION['login'], 'token')['username'] ?? 'User'); ?></a>
+                <?php else: ?>
+                    <a href="<?= BASE_URL('client/login'); ?>" class="btn btn-sm">Đăng nhập</a>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+    <!-- navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container">
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item"><a class="nav-link" href="<?= BASE_URL(''); ?>">Trang chủ</a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= BASE_URL('client/shop-dichvu'); ?>">Dịch vụ</a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= BASE_URL('client/shop-document'); ?>">Sản phẩm</a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= BASE_URL('client/recharge'); ?>">Nạp tiền</a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= BASE_URL('client/orders'); ?>">Lịch sử</a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= BASE_URL('client/blogs'); ?>">Blogs</a></li>
+            </ul>
+        </div>
+    </nav>
+</header>
