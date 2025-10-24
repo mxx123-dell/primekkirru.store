@@ -3,21 +3,21 @@ if (!defined('IN_SITE')) die('The Request Not Found');
 
 if (!class_exists('DB')) require_once __DIR__ . '/db.php';
 
-// Bắt đầu session an toàn (fix Render)
+// --- SESSION AN TOÀN (Render) ---
 if (session_status() === PHP_SESSION_NONE) {
-    @session_save_path(sys_get_temp_dir());
+    @session_save_path(sys_get_temp_dir() . '/sessions');
     @session_start();
 }
 
-// ===== KẾT NỐI DB AN TOÀN =====
+// --- KHỞI TẠO DB ---
 try {
     $CMSNT = new DB();
 } catch (Throwable $e) {
     error_log('DB Init Error: ' . $e->getMessage());
-    $CMSNT = null; // fallback để tránh lỗi fatal
+    $CMSNT = null;
 }
 
-// ===== CÀI ĐẶT TIMEZONE =====
+// --- TIMEZONE ---
 if ($CMSNT && method_exists($CMSNT, 'site')) {
     $tz = $CMSNT->site('timezone') ?: 'Asia/Bangkok';
     @date_default_timezone_set($tz);
@@ -25,7 +25,7 @@ if ($CMSNT && method_exists($CMSNT, 'site')) {
     @date_default_timezone_set('Asia/Bangkok');
 }
 
-// ===== CHẶN IP BANNED =====
+// --- CHẶN BANNED IP ---
 try {
     if ($CMSNT && $CMSNT->fetch("SELECT * FROM banned_ips WHERE ip = '".myip()."' AND banned = 1")) {
         die('<div style="text-align:center;margin-top:50px"><h2>404 Not Found</h2><p>Access Denied</p></div>');
@@ -34,12 +34,10 @@ try {
     error_log("Check banned IP failed: " . $e->getMessage());
 }
 
-// ===== HÀM DỊCH ĐƠN GIẢN (TRÁNH LỖI __) =====
-if (!function_exists('__')) {
-    function __($string) { return $string; }
-}
+// --- HÀM DỊCH ĐƠN GIẢN (nếu lang thiếu) ---
+if (!function_exists('__')) { function __($string){ return $string; } }
 
-// ===== HÀM LẤY IP NGƯỜI DÙNG =====
+// --- HELPER CƠ BẢN ---
 function myip() {
     if (!empty($_SERVER['HTTP_CLIENT_IP'])) return $_SERVER['HTTP_CLIENT_IP'];
     if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
@@ -49,23 +47,21 @@ function myip() {
     return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 }
 
-// ===== HÀM BẢO VỆ CHUỖI =====
 function check_string($data) {
     if (is_array($data)) return '';
-    return trim(htmlspecialchars(addslashes($data)));
+    return trim(htmlspecialchars((string)$data, ENT_QUOTES, 'UTF-8'));
 }
 
 function check_path($data) {
-    return str_replace(['../', './', '..\\', '.\\'], '', $data);
+    return str_replace(['../', './', '..\\', '.\\'], '', (string)$data);
 }
 
-// ===== SITE CONFIG =====
 function site($key) {
     global $CMSNT;
     return $CMSNT ? $CMSNT->site($key) : null;
 }
 
-// ===== CURL HỖ TRỢ API =====
+// --- CURL ---
 function curl_get($url){
     $ch = curl_init();
     curl_setopt_array($ch, [
@@ -95,65 +91,60 @@ function curl_post($url,$data=[],$headers=[]){
     return $err ? false : $result;
 }
 
-// ===== HÀM ĐỊNH DẠNG THỜI GIAN =====
-function format_date($time) {
-    return date("d/m/Y H:i:s", strtotime($time));
-}
+// --- TIME / RANDOM ---
+function format_date($time) { return date("d/m/Y H:i:s", strtotime($time)); }
+function random($string, $int) { return substr(str_shuffle($string), 0, $int); }
+function gettime() { return date("Y-m-d H:i:s"); }
 
-function random($string, $int) {
-    return substr(str_shuffle($string), 0, $int);
-}
-
-function gettime() {
-    return date("Y-m-d H:i:s");
-}
-
-// ===== TẠO BASE URL TỰ ĐỘNG =====
+// ===== BASE_URL (phát hiện https trên Render via X-Forwarded-Proto) =====
 function BASE_URL($url = '') {
     global $CMSNT;
     $domain = $CMSNT ? $CMSNT->site('domain') : '';
     if (empty($domain)) {
-        $scheme = $_SERVER['REQUEST_SCHEME'] ?? 'https';
+        $scheme = 'https';
+        if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+            $scheme = $_SERVER['HTTP_X_FORWARDED_PROTO'];
+        } elseif (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+            $scheme = 'https';
+        } elseif (!empty($_SERVER['REQUEST_SCHEME'])) {
+            $scheme = $_SERVER['REQUEST_SCHEME'];
+        }
         $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
         $domain = "{$scheme}://{$host}";
     }
     return rtrim($domain, '/') . '/' . ltrim($url, '/');
 }
 
-// ===== REDIRECT AN TOÀN =====
-function redirect($url) {
-    @header('Location: ' . $url);
-    exit();
-}
+// --- REDIRECT ---
+function redirect($url) { @header('Location: ' . $url); exit(); }
 
-// ===== THÔNG BÁO =====
+// --- MESSAGES (swal) ---
 function msg_success($text, $url = '', $time = 1000) {
-    echo '<script type="text/javascript">swal("Thành công", "' . $text . '","success");';
-    if ($url) echo 'setTimeout(function(){ location.href = "' . $url . '"; }, ' . $time . ');';
+    echo '<script type="text/javascript">swal("Thành công", "' . addslashes($text) . '","success");';
+    if ($url) echo 'setTimeout(function(){ location.href = "' . $url . '"; }, ' . (int)$time . ');';
     echo '</script>';
 }
-
 function msg_error($text, $url = '', $time = 1000) {
-    echo '<script type="text/javascript">swal("Thất bại", "' . $text . '","error");';
-    if ($url) echo 'setTimeout(function(){ location.href = "' . $url . '"; }, ' . $time . ');';
+    echo '<script type="text/javascript">swal("Thất bại", "' . addslashes($text) . '","error");';
+    if ($url) echo 'setTimeout(function(){ location.href = "' . $url . '"; }, ' . (int)$time . ');';
     echo '</script>';
 }
 
-// ===== AUTO CLEAN TEMP (TỐI ƯU CPU + MEM) =====
+// ===== AUTO CLEAN TEMP (reduce mem) =====
 if (!function_exists('auto_clean_render')) {
     function auto_clean_render() {
         foreach (glob(sys_get_temp_dir().'/*') as $f) {
-            if (is_file($f) && time() - filemtime($f) > 3600) @unlink($f);
+            if (is_file($f) && time() - @filemtime($f) > 3600) @unlink($f);
         }
     }
 }
 
-// ===== AUTO PING RENDER CHỐNG NGỦ =====
+// ===== AUTO PING RENDER (avoid sleep) =====
 if (!function_exists('auto_ping_render')) {
     function auto_ping_render() {
         $pid_file = sys_get_temp_dir() . '/render_ping.pid';
-        $interval = 600; // 10 phút
-        $scheme = $_SERVER['REQUEST_SCHEME'] ?? 'https';
+        $interval = 600;
+        $scheme = $_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ($_SERVER['REQUEST_SCHEME'] ?? 'https');
         $host = $_SERVER['HTTP_HOST'] ?? '';
         if (empty($host)) return false;
         $url = "{$scheme}://{$host}";
@@ -165,14 +156,31 @@ if (!function_exists('auto_ping_render')) {
     }
 }
 
-// ===== HÀM GIẢ LẬP getLanguage() (fix lỗi thiếu lang.php) =====
-if (!function_exists('getLanguage')) {
-    function getLanguage($key = '') {
-        return $key;
+// ===== Compatibility helper: getRowRealtime (used by template) =====
+if (!function_exists('getRowRealtime')) {
+    function getRowRealtime($table, $value, $column = 'id') {
+        global $CMSNT;
+        if (!$CMSNT) return null;
+        $table = check_string($table);
+        $column = check_string($column);
+        // If numeric id, cast
+        $safeValue = is_numeric($value) ? (int)$value : pg_escape_string(DB::connect(), (string)$value);
+        $sql = "SELECT * FROM \"{$table}\" WHERE \"{$column}\" = '{$safeValue}' LIMIT 1";
+        try {
+            return $CMSNT->get_row($sql);
+        } catch (Throwable $e) {
+            error_log("getRowRealtime error: " . $e->getMessage());
+            return null;
+        }
     }
 }
 
-// ===== TỰ ĐỘNG GỌI CLEAN & PING =====
-auto_clean_render();
-auto_ping_render();
+// ===== Fallback getLanguage if lang.php not loaded =====
+if (!function_exists('getLanguage')) {
+    function getLanguage() { return $_COOKIE['language'] ?? 'en'; }
+}
+
+// auto run maintenance helpers
+@auto_clean_render();
+@auto_ping_render();
 ?>
