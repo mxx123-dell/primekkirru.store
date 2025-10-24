@@ -9,9 +9,9 @@ class DB {
     // ===== KẾT NỐI DATABASE =====
     public static function connect() {
         if (!self::$conn) {
-            $host = getenv('DB_HOST') ?: 'localhost';
-            $user = getenv('DB_USERNAME') ?: 'postgres';
-            $pass = getenv('DB_PASSWORD') ?: '';
+            $host = getenv('DB_HOST') ?: 'dpg-d3roc9ruibrs73b64adg-a';
+            $user = getenv('DB_USERNAME') ?: 'primekkirru_db_user';
+            $pass = getenv('DB_PASSWORD') ?: 'hqw9ByoG2YNzjJFjIhZe0JMut3dWYcxt';
             $db   = getenv('DB_DATABASE') ?: 'primekkirru_db';
             $port = getenv('DB_PORT') ?: '5432';
 
