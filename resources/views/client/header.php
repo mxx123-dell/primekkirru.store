@@ -1,4 +1,4 @@
-<?php 
+<?php  
 if (!defined('IN_SITE')) {
     die('The Request Not Found');
 }
@@ -19,14 +19,14 @@ if (!function_exists('get_url')) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= htmlspecialchars($body['title'] ?? site('title') ?? 'Shop'); ?></title>
 
-<!-- CSS chính -->
-<link rel="stylesheet" href="<?= BASE_URL('public/datum/assets/css/all.min.css'); ?>">
-<link rel="stylesheet" href="<?= BASE_URL('public/datum/assets/css/backend.css'); ?>">
-<link rel="stylesheet" href="<?= BASE_URL('public/datum/assets/css/customize.css'); ?>">
-<link rel="stylesheet" href="<?= BASE_URL('public/datum/assets/css/style.css'); ?>">
+<!-- ✅ CSS chính -->
+<link rel="stylesheet" href="<?= BASE_URL('assets/css/all.min.css'); ?>">
+<link rel="stylesheet" href="<?= BASE_URL('assets/css/backend.css'); ?>">
+<link rel="stylesheet" href="<?= BASE_URL('assets/css/customize.css'); ?>">
+<link rel="stylesheet" href="<?= BASE_URL('assets/css/style.css'); ?>">
 
-<!-- fonts / icons -->
-<link rel="stylesheet" href="<?= BASE_URL('public/datum/assets/fonts/fa-solid-900.woff2'); ?>">
+<!-- ✅ FontAwesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-/D+nZQ7z8A1qEUdF8YoEfY9sN2I64ZT9+8l8kCS4tmHuWAh5K+7nQe4+R03q1HkMJ6QvRVKZr8D8bT0M3Q9u9Q==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
 </head>
 <body>
@@ -35,7 +35,9 @@ if (!function_exists('get_url')) {
     <div class="topbar" style="background:#00c5ff;padding:6px 0;">
         <div class="container d-flex justify-content-between align-items-center">
             <div class="logo">
-                <a href="<?= BASE_URL(''); ?>"><img src="<?= BASE_URL($CMSNT->site('logo_dark') ?: 'public/datum/assets/images/logo.png'); ?>" alt="logo" style="height:60px;"></a>
+                <a href="<?= BASE_URL(''); ?>">
+                    <img src="<?= BASE_URL($CMSNT->site('logo_dark') ?: 'assets/img/logo.png'); ?>" alt="logo" style="height:60px;">
+                </a>
             </div>
             <div class="search">
                 <form action="<?= BASE_URL('search'); ?>" method="GET">
@@ -46,7 +48,9 @@ if (!function_exists('get_url')) {
                 <!-- cart / user icons -->
                 <a href="<?= BASE_URL('client/cart'); ?>" class="btn btn-sm"><i class="fas fa-shopping-cart"></i></a>
                 <?php if(isset($_SESSION['login'])): ?>
-                    <a href="<?= BASE_URL('client/profile'); ?>" class="btn btn-sm"><?= htmlspecialchars(getRowRealtime('users', $_SESSION['login'], 'token')['username'] ?? 'User'); ?></a>
+                    <a href="<?= BASE_URL('client/profile'); ?>" class="btn btn-sm">
+                        <?= htmlspecialchars(getRowRealtime('users', $_SESSION['login'], 'token')['username'] ?? 'User'); ?>
+                    </a>
                 <?php else: ?>
                     <a href="<?= BASE_URL('client/login'); ?>" class="btn btn-sm">Đăng nhập</a>
                 <?php endif; ?>
