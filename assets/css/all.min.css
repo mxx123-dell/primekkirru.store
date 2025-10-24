@@ -1,7 +1,53 @@
-
 /* all.min.css */
-body{margin:0;padding:0;font-family:'Poppins',sans-serif;background:#f8fbff;color:#1a1a1a;}
-a{color:#007bff;text-decoration:none;transition:.2s;}a:hover{color:#0056b3;}
-.btn,button{background:#00aaff;border:none;color:#fff;padding:10px 20px;border-radius:8px;cursor:pointer;transition:.2s;}
-.btn:hover,button:hover{background:#007acc;}
-footer{text-align:center;padding:20px;background:#e6f5ff;color:#444;}
+
+/* Reset cơ bản */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Cấu hình font mặc định */
+body {
+  font-family: 'Poppins', sans-serif;
+  background: #f8fbff;
+  color: #1a1a1a;
+  line-height: 1.6;
+}
+
+/* Liên kết */
+a {
+  color: #007bff;
+  text-decoration: none;
+  transition: color 0.2s ease-in-out;
+}
+a:hover {
+  color: #0056b3;
+}
+
+/* Nút */
+.btn,
+button {
+  background: #00aaff;
+  border: none;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease-in-out, transform 0.1s ease;
+}
+.btn:hover,
+button:hover {
+  background: #007acc;
+  transform: translateY(-1px);
+}
+
+/* Footer */
+footer {
+  text-align: center;
+  padding: 20px;
+  background: #e6f5ff;
+  color: #444;
+  font-size: 14px;
+  border-top: 1px solid #d6ecff;
+}
