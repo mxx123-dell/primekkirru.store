@@ -12,8 +12,8 @@ $Mobile_Detect = new Mobile_Detect();
 
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    if ($CMSNT->site('status') != 1 && !isset($_SESSION['admin_login'])) {
-        die(json_encode(['status' => 'error', 'msg' => __('Hệ thống đang bảo trì')]));
+//  if ($CMSNT->site('status') != 1 && !isset($_SESSION['admin_login'])) {
+//       die(json_encode(['status' => 'error', 'msg' => __('Hệ thống đang bảo trì')]));
     }
     if (empty($_POST['username'])) {
         die(json_encode(['status' => 'error', 'msg' => __('Username không được để trống')]));
