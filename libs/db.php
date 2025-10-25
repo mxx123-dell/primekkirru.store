@@ -9,7 +9,7 @@ class DB {
     // ===== KẾT NỐI DATABASE =====
     public static function connect() {
         if (!self::$conn) {
-            $host = getenv('DB_HOST') ?: 'dpg-d3roc9ruibrs73b64adg-a';
+            $host = getenv('DB_HOST') ?: 'dpg-d3roc9ruibrs73b64adg-a.frankfurt-postgres.render.com';
             $user = getenv('DB_USERNAME') ?: 'primekkirru_db_user';
             $pass = getenv('DB_PASSWORD') ?: 'hqw9ByoG2YNzjJFjIhZe0JMut3dWYcxt';
             $db   = getenv('DB_DATABASE') ?: 'primekkirru_db';
