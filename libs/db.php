@@ -111,5 +111,11 @@ class DB {
         $sql = "INSERT INTO \"{$table}\" (" . implode(",", $cols) . ") VALUES (" . implode(",", $vals) . ")";
         return @pg_query($conn, $sql);
     }
+
+    // ===== ESCAPE STRING (chống SQL injection) =====
+    public function escape($string) {
+        $conn = self::connect();
+        return pg_escape_string($conn, $string);
+    }
 }
 ?>
