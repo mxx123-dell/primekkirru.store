@@ -1,96 +1,109 @@
 <?php if (!defined('IN_SITE')) {
     die('The Request Not Found');
-} ?>
-    <!-- ================= FOOTER CLIENT ================= -->
-    <footer class="footer text-center mt-5 py-4 border-top">
-        <div class="container">
-            <p class="mb-1">
-                © <?=date('Y');?> <?=$CMSNT->site('title');?> - <?=$CMSNT->site('author');?>
-            </p>
-            <small class="text-muted">
-                Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi ❤️
-            </small>
-        </div>
-    </footer>
+}
 
-    <!-- ================= SCRIPT CƠ BẢN ================= -->
-    <script src="<?=BASE_URL('resources/js/jquery.js');?>"></script>
-    <script src="<?=BASE_URL('public/datum/assets/js/backend-bundle.min.js');?>"></script>
-    <script src="<?=BASE_URL('public/datum/assets/js/app.js');?>"></script>
-    <script src="<?=BASE_URL('public/datum/assets/js/customizer.js');?>"></script>
-    <script src="<?=BASE_URL('public/cute-alert/cute-alert.js');?>"></script>
-    <script src="<?=BASE_URL('public/sweetalert2/sweetalert2.js');?>"></script>
-    <script src="https://cdn.lordicon.com/xdjxvujz.js"></script>
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+$body = [
+    'title' => __('Đăng nhập').' | '.$CMSNT->site('title'),
+    'desc'   => $CMSNT->site('description'),
+    'keyword' => $CMSNT->site('keywords')
+];
+$body['header'] = '
+    <link href="'.BASE_URL('public/client/').'assets/css/pages/login/classic/login-2.css" rel="stylesheet" type="text/css" />
+';
+require_once(__DIR__.'/header.php');
+?>
 
-    <!-- ================= SCRIPT HIỂN THỊ THÔNG BÁO ================= -->
-    <script>
-    $(document).ready(function() {
-        <?php if (!empty($_SESSION['alert'])): ?>
-            Swal.fire({
-                icon: '<?= $_SESSION['alert']['type']; ?>',
-                title: '<?= $_SESSION['alert']['title']; ?>',
-                html: '<?= $_SESSION['alert']['text']; ?>',
-                showConfirmButton: true
-            });
-            <?php unset($_SESSION['alert']); ?>
-        <?php endif; ?>
-    });
-    </script>
+<style>
+    .bg-image {
+        background-position: center;
+        background-size: cover;
+    }
+</style>
 
-    <!-- ================= SCRIPT AJAX LOAD SẢN PHẨM (NẾU CÓ) ================= -->
-    <script>
-    $(document).ready(function () {
-        if ($("#showProduct").length) {
-            console.log("🛒 Bắt đầu tải danh sách sản phẩm...");
+<body class="bg-image" style="background-image: url(<?=BASE_URL($CMSNT->site('bg_login'));?>);">
+    <div id="loading"><div id="loading-center"></div></div>
+    <div class="wrapper">
+        <section class="login-content">
+            <div class="container h-100">
+                <div class="row align-items-center justify-content-center h-100">
+                    <div class="col-md-5">
+                        <div class="card p-3 shadow">
+                            <div class="card-body">
+                                <div class="auth-logo text-center mb-3">
+                                    <img src="<?=BASE_URL($CMSNT->site('logo_dark'));?>" class="img-fluid" alt="logo" style="max-height: 70px;">
+                                </div>
+                                <h3 class="mb-3 font-weight-bold text-center"><?=__('Đăng Nhập');?></h3>
 
-            $("#showProduct").html(`
-                <div class="col-12 text-center py-5">
-                    <img src="<?=BASE_URL('public/datum/assets/images/loader.gif');?>" width="80">
-                    <p class="text-muted mt-3">Đang tải danh sách sản phẩm...</p>
-                </div>
-            `);
+                                <form id="loginForm">
+                                    <div class="form-group mb-3">
+                                        <label class="text-secondary"><?=__('Tên đăng nhập hoặc Email');?></label>
+                                        <input type="text" class="form-control" id="username" placeholder="<?=__('Nhập tên đăng nhập hoặc email');?>">
+                                    </div>
 
-            $.ajax({
-                url: "<?= BASE_URL('ajaxs/client/showProduct.php'); ?>",
-                type: "GET",
-                dataType: "html",
-                success: function (data) {
-                    console.log("✅ Đã tải sản phẩm thành công");
-                    $("#showProduct").html(data);
-                },
-                error: function (xhr, status, error) {
-                    console.error("❌ Lỗi tải sản phẩm:", xhr.status, xhr.statusText);
-                    $("#showProduct").html(`
-                        <div class="col-12 text-center text-danger py-5">
-                            <i class="fa fa-exclamation-circle fa-2x mb-3"></i>
-                            <p>Không thể tải danh sách sản phẩm.<br>Lỗi: ${xhr.status} - ${xhr.statusText}</p>
-                            <button class="btn btn-primary mt-3" onclick="location.reload()">Thử lại</button>
+                                    <div class="form-group mb-3">
+                                        <label class="text-secondary"><?=__('Mật khẩu');?></label>
+                                        <input type="password" class="form-control" id="password" placeholder="<?=__('Nhập mật khẩu');?>">
+                                    </div>
+
+                                    <?php if($CMSNT->site('reCAPTCHA_status') == 1): ?>
+                                    <div class="form-group text-center mb-3">
+                                        <div class="g-recaptcha" data-sitekey="<?=$CMSNT->site('reCAPTCHA_site_key');?>"></div>
+                                    </div>
+                                    <?php endif; ?>
+
+                                    <button type="button" id="btnLogin" class="btn btn-primary w-100 mt-2"><?=__('Đăng Nhập');?></button>
+
+                                    <div class="text-center mt-3">
+                                        <p class="mb-0"><?=__('Chưa có tài khoản?');?> 
+                                            <a href="<?=BASE_URL('client/register');?>"><?=__('Đăng ký ngay');?></a>
+                                        </p>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
-                    `);
-                }
-            });
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Gọi footer -->
+    <?php require_once(__DIR__.'/footer.php'); ?>
+
+<script type="text/javascript">
+$("#btnLogin").on("click", function() {
+    $('#btnLogin').html('<i class="fa fa-spinner fa-spin"></i> <?=__('Đang xử lý...');?>').prop('disabled', true);
+    
+    $.ajax({
+        url: "<?=base_url('ajaxs/client/login.php');?>",
+        method: "POST",
+        dataType: "JSON",
+        data: {
+            username: $("#username").val(),
+            password: $("#password").val(),
+            recaptcha: $("#g-recaptcha-response").val()
+        },
+        success: function(response) {
+            if (response.status === 'success') {
+                cuteToast({
+                    type: "success",
+                    message: response.msg,
+                    timer: 4000
+                });
+                setTimeout(() => {
+                    window.location.href = "<?=BASE_URL('client/home');?>";
+                }, 500);
+            } else {
+                Swal.fire('<?=__('Thất bại');?>', response.msg, 'error');
+            }
+            $('#btnLogin').html('<?=__('Đăng Nhập');?>').prop('disabled', false);
+        },
+        error: function(xhr, status, error) {
+            Swal.fire('Lỗi!', 'Không thể xử lý yêu cầu. Vui lòng thử lại.', 'error');
+            $('#btnLogin').html('<?=__('Đăng Nhập');?>').prop('disabled', false);
         }
     });
-    </script>
-
-    <!-- ================= SCRIPT ẨN LOADING ================= -->
-    <script>
-    window.addEventListener("load", function() {
-        const loader = document.getElementById("loading-center");
-        if (loader) {
-            loader.style.transition = "opacity 0.5s ease";
-            loader.style.opacity = "0";
-            setTimeout(() => loader.style.display = "none", 500);
-            console.log("✅ Loader ẩn thành công");
-        } else {
-            console.warn("⚠️ Không tìm thấy #loading-center");
-        }
-    });
-    </script>
-
-    <!-- ================= CUSTOM FOOTER SCRIPT ================= -->
-    <?=$CMSNT->site('javascript_footer');?>
-
+});
+</script>
 </body>
 </html>
