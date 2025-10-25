@@ -1,4 +1,4 @@
-<?php
+<?php 
 if (!defined('IN_SITE')) {
     die('The Request Not Found');
 }
@@ -68,6 +68,37 @@ if (!function_exists('write_log')) {
         }
         $log = "[" . date('Y-m-d H:i:s') . "] " . $msg . PHP_EOL;
         @file_put_contents($path . '/' . $file, $log, FILE_APPEND);
+    }
+}
+
+// =======================================================
+// 🗣️ HÀM HỖ TRỢ DỊCH (Đa ngôn ngữ + tránh lỗi undefined function __())
+// =======================================================
+if (!function_exists('__')) {
+    function __($text) {
+        static $lang_data = null;
+
+        // ⚙️ Xác định ngôn ngữ (ưu tiên ?lang= trên URL → session → mặc định 'vi')
+        $lang_code = 'vi';
+        if (!empty($_GET['lang'])) {
+            $lang_code = preg_replace('/[^a-z]/', '', strtolower($_GET['lang']));
+            $_SESSION['lang'] = $lang_code;
+        } elseif (!empty($_SESSION['lang'])) {
+            $lang_code = $_SESSION['lang'];
+        }
+
+        // ⚙️ Nạp file ngôn ngữ tương ứng (chỉ load 1 lần để tăng hiệu năng)
+        if ($lang_data === null) {
+            $lang_file = __DIR__ . '/../lang/' . $lang_code . '.php';
+            if (is_file($lang_file)) {
+                $lang_data = include $lang_file;
+            } else {
+                $lang_data = [];
+            }
+        }
+
+        // ⚙️ Trả về bản dịch nếu có, nếu không có thì giữ nguyên
+        return $lang_data[$text] ?? $text;
     }
 }
 ?>
