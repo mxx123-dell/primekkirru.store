@@ -1,4 +1,4 @@
-<?php
+<?php 
 // ==================== Dev By CMSNT.CO (Đã tối ưu lại + Bảo mật nâng cao) ====================
 
 // ⚙️ Hiển thị lỗi (bật lên để debug, tắt khi chạy thật)
@@ -18,20 +18,22 @@ define("IN_SITE", true);
 
 // ==================== Load cấu hình và thư viện ====================
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/libs/db.php';       // ⚡ load DB trước helper
+require_once __DIR__ . '/libs/db.php';
+
+// ✅ Khởi tạo DB trước helper.php (rất quan trọng)
+$CMSNT = new DB();
+$conn = $CMSNT->connect();
+if (!$conn) {
+    die('<b>❌ Không thể kết nối Database.</b><br>Kiểm tra lại cấu hình trong <code>libs/db.php</code>.');
+}
+
+// ✅ Sau khi có DB rồi mới load helper (vì helper dùng $CMSNT)
 require_once __DIR__ . '/libs/helper.php';
 
 // ⚙️ Cấu hình PHP cơ bản
 ini_set('memory_limit', '256M');
 ini_set('max_execution_time', '60');
 ignore_user_abort(true);
-
-// ==================== Khởi tạo DB ====================
-$CMSNT = new DB();
-$conn = $CMSNT->connect();
-if (!$conn) {
-    die('<b>❌ Không thể kết nối Database.</b><br>Kiểm tra lại cấu hình trong <code>libs/db.php</code>.');
-}
 
 // ==================== Xác định module/action ====================
 $module = !empty($_GET['module']) ? check_path($_GET['module']) : 'client';
