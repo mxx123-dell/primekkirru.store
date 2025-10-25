@@ -1,12 +1,12 @@
 <?php
 // ==================== Dev By CMSNT.CO (Đã tối ưu lại + Bảo mật nâng cao) ====================
 
-// ⚙️ Hiển thị lỗi (chỉ bật khi debug)
-ini_set('display_errors', 0);
-ini_set('display_startup_errors', 0);
-error_reporting(0);
+// ⚙️ Hiển thị lỗi (bật lên để debug, tắt khi chạy thật)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
-// ⚙️ Ghi log lỗi ra file để kiểm tra lỗi 500
+// ⚙️ Ghi log lỗi ra file (để kiểm tra lỗi 500)
 ini_set('log_errors', 1);
 ini_set('error_log', __DIR__ . '/php_error.log');
 
@@ -38,10 +38,8 @@ $module = !empty($_GET['module']) ? check_path($_GET['module']) : 'client';
 $action = !empty($_GET['action']) ? check_path($_GET['action']) : 'home';
 $ref    = isset($_GET['ref']) ? check_string($_GET['ref']) : null;
 
-// ==================== Danh sách module và action hợp lệ ====================
-// 👉 Chỉ cho phép các module này được load (thêm nếu cần)
+// ==================== Danh sách module/action hợp lệ ====================
 $allowed_modules = ['client', 'admin'];
-// 👉 Các action cấm tuyệt đối
 $blocked_actions = ['footer', 'header', 'sidebar', 'nav', '.', '..', 'index'];
 
 // Kiểm tra module hợp lệ
@@ -59,14 +57,8 @@ if (in_array($action, $blocked_actions) || preg_match('/[^a-zA-Z0-9_\-]/', $acti
 // ==================== Xử lý ref click ====================
 if ($ref) {
     try {
-        // ⚠️ Đảm bảo có hàm escape (nếu chưa có trong helper thì thêm)
-        if (method_exists($CMSNT, 'escape')) {
-            $ref_safe = $CMSNT->escape($ref);
-        } else {
-            $conn_ref = $CMSNT->connect();
-            $ref_safe = pg_escape_string($conn_ref, $ref);
-        }
-
+        $conn_ref = $CMSNT->connect();
+        $ref_safe = pg_escape_string($conn_ref, $ref);
         $domain_row = $CMSNT->get_row("SELECT user_id FROM domains WHERE domain = '$ref_safe' LIMIT 1");
         if (!empty($domain_row['user_id'])) {
             $user_id = (int)$domain_row['user_id'];
@@ -85,7 +77,6 @@ $view = __DIR__ . "/resources/views/$module/$action.php";
 if (is_file($view)) {
     require_once $view;
 } else {
-    // fallback mặc định: shopacc.php nếu client, còn lại 404
     if ($module === 'client') {
         $fallback = __DIR__ . '/resources/views/client/shopacc.php';
         require_once is_file($fallback)
