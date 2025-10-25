@@ -3,6 +3,10 @@ if (!defined('IN_SITE')) {
     die('The Request Not Found');
 }
 
+// ✅ Gọi file db.php để có $CMSNT
+require_once(__DIR__.'/db.php');
+global $CMSNT;
+
 // ===== HÀM LẤY URL HIỆN TẠI =====
 if (!function_exists('get_url')) {
     function get_url() {
