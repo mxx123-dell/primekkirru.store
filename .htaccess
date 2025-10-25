@@ -1,48 +1,44 @@
+# Bật rewrite
 RewriteEngine On
 RewriteBase /
 
+# Bảo mật file .env
 <Files ".env">
     Require all denied
 </Files>
 
-# Kiểm tra xem tham số ref đã tồn tại chưa
-RewriteCond %{QUERY_STRING} !^ref=.onrender.com
+# Nếu không có file hoặc thư mục trùng tên, rewrite về index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 
-# Lấy tên miền và thêm vào tham số ref
-RewriteCond %{HTTP_HOST} ^(.*)$
-RewriteRule ^$ /index.php?module=client&action=home&ref=%{HTTP_HOST} [L,QSA]
-RewriteRule ^client$ /index.php?module=client&action=home&ref=%{HTTP_HOST} [L,QSA]
-RewriteRule ^client/([A-Za-z0-9-]+)$ /index.php?module=client&action=$1&ref=%{HTTP_HOST} [L,QSA]
+# ==============================================
+# === ROUTE TRANG CHỦ ==========================
+# ==============================================
 
-# Route CTV
-RewriteRule ^ctv/account-view/([A-Za-z0-9-]+)$ /index.php?module=ctv&action=account-view&id=$1 [L]
-RewriteRule ^ctv/verify/([A-Za-z0-9-]+)$ /index.php?module=ctv&action=verify&token=$1 [L]
-RewriteRule ^ctv/accounts/([A-Za-z0-9-]+)$ /index.php?module=ctv&action=accounts&id=$1 [L]
-RewriteRule ^ctv/product-edit/([A-Za-z0-9-]+)$ /index.php?module=ctv&action=product-edit&id=$1 [L]
-RewriteRule ^ctv/([A-Za-z0-9-]+)$ /index.php?module=ctv&action=$1 [L]
-RewriteRule ^ctv$ /index.php?module=ctv&action= [L]
+# Trang chủ (giữ nguyên)
+RewriteRule ^$ /index.php?module=client&action=home [L,QSA]
 
-# Route ADMIN
+# ==============================================
+# === TẤT CẢ TRANG CLIENT ======================
+# ==============================================
+
+# Tất cả đường dẫn (ngoại trừ root) đều phải đi qua /client/...
+RewriteRule ^client/?$ /index.php?module=client&action=home [L,QSA]
+RewriteRule ^client/([A-Za-z0-9-]+)/?$ /index.php?module=client&action=$1 [L,QSA]
+RewriteRule ^client/([A-Za-z0-9-]+)/([A-Za-z0-9-]+)/?$ /index.php?module=client&action=$1&id=$2 [L,QSA]
+
+# ==============================================
+# === ROUTE ADMIN / CTV / COMMON ===============
+# ==============================================
+
 RewriteRule ^admin/(.+)$ /index.php?module=admin&action=$1 [L,QSA]
+RewriteRule ^ctv/(.+)$ /index.php?module=ctv&action=$1 [L,QSA]
+RewriteRule ^common/(.+)$ /index.php?module=common&action=$1 [L,QSA]
 
-# Route CLIENT
-RewriteRule ^client/dichvugame/([A-Za-z0-9-]+)$ /index.php?module=client&action=dichvugame&id=$1 [L]
-RewriteRule ^client/verify-otp-mail/([A-Za-z0-9-]+)$ /index.php?module=client&action=verify-otp-mail&token=$1 [L]
-RewriteRule ^page/([A-Za-z0-9-]+)$ /index.php?module=client&action=page&slug=$1 [L]
-RewriteRule ^join/([A-Za-z0-9-]+)$ /index.php?module=client&action=join&ref=$1 [L]
-RewriteRule ^client/home/([A-Za-z0-9-]+)$ /index.php?module=client&action=home&shop=$1 [L]
-RewriteRule ^client/blog/([A-Za-z0-9-]+)$ /index.php?module=client&action=blog&id=$1 [L]
-RewriteRule ^client/giftbox/([A-Za-z0-9-]+)$ /index.php?module=client&action=giftbox&id=$1 [L]
-RewriteRule ^client/verify/([A-Za-z0-9-]+)$ /index.php?module=client&action=verify&token=$1 [L]
-RewriteRule ^client/notification/view/([A-Za-z0-9-]+)$ /index.php?module=client&action=notification-view&id=$1 [L]
-RewriteRule ^client/profile-ctv/([A-Za-z0-9-]+)$ /index.php?module=client&action=profile-ctv&username=$1 [L]
-RewriteRule ^client/order/([A-Za-z0-9-]+)$ /index.php?module=client&action=order&trans_id=$1 [L]
-RewriteRule ^client/payment/([A-Za-z0-9-]+)$ /index.php?module=client&action=payment&invoice=$1 [L]
-RewriteRule ^(Dashboard|Dashbroad|dashboard)$ /index.php?module=client&action=home [L]
-RewriteRule ^client/home/shop-document$ /index.php?module=client&action=shop-document [L]
-RewriteRule ^client/home/shop-account$ /index.php?module=client&action=shop-account [L]
-RewriteRule ^client/([A-Za-z0-9-]+)$ /index.php?module=client&action=$1 [L]
-RewriteRule ^client$ /index.php?module=client&action= [L]
+# ==============================================
+# === REDIRECT TỰ ĐỘNG =========================
+# ==============================================
 
-# Route COMMON
-RewriteRule ^common/([A-Za-z0-9-]+)$ /index.php?module=common&action=$1 [L]
+# Nếu người dùng truy cập /login hoặc /register -> chuyển hướng về /client/login, /client/register
+RewriteRule ^login$ /client/login [R=301,L]
+RewriteRule ^register$ /client/register [R=301,L]
