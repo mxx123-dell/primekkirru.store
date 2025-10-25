@@ -6,7 +6,10 @@ if (session_status() === PHP_SESSION_NONE) {
 class DB {
     private static $conn = null;
 
-    // ===== KẾT NỐI DATABASE =====
+    /**
+     * ===== KẾT NỐI DATABASE =====
+     * Dùng biến môi trường nếu có, fallback giá trị mặc định.
+     */
     public static function connect() {
         if (!self::$conn) {
             $host = getenv('DB_HOST') ?: 'dpg-d3roc9ruibrs73b64adg-a.frankfurt-postgres.render.com';
@@ -15,13 +18,18 @@ class DB {
             $db   = getenv('DB_DATABASE') ?: 'primekkirru_db';
             $port = getenv('DB_PORT') ?: '5432';
 
-            $conn_string = "host={$host} port={$port} dbname={$db} user={$user} password={$pass}";
+            $conn_string = sprintf(
+                "host=%s port=%s dbname=%s user=%s password=%s",
+                $host, $port, $db, $user, $pass
+            );
+
             $conn = @pg_connect($conn_string);
             if (!$conn) {
-                error_log("❌ Postgres connect failed: {$host}:{$port}/{$db}");
-                die("Database connection failed. Check environment variables.");
+                error_log("❌ Database connection failed: {$host}:{$port}/{$db}");
+                die('⚠️ Kết nối cơ sở dữ liệu thất bại. Vui lòng kiểm tra cấu hình!');
             }
 
+            // Tự động đóng kết nối khi script kết thúc
             register_shutdown_function(function() {
                 if (self::$conn) {
                     @pg_close(self::$conn);
@@ -34,22 +42,30 @@ class DB {
         return self::$conn;
     }
 
-    // ===== TRUY VẤN =====
+    /**
+     * ===== TRUY VẤN SQL =====
+     */
     public static function query(string $sql) {
         $conn = self::connect();
         $result = @pg_query($conn, $sql);
         if (!$result) {
             $err = pg_last_error($conn);
-            error_log("SQL Error: {$err} | Query: {$sql}");
+            error_log("❌ SQL Error: {$err} | Query: {$sql}");
         }
         return $result;
     }
 
+    /**
+     * ===== LẤY MỘT DÒNG =====
+     */
     public static function fetch(string $sql) {
         $result = self::query($sql);
         return $result ? pg_fetch_assoc($result) : null;
     }
 
+    /**
+     * ===== LẤY NHIỀU DÒNG =====
+     */
     public static function fetchAll(string $sql): array {
         $result = self::query($sql);
         $data = [];
@@ -61,11 +77,17 @@ class DB {
         return $data;
     }
 
+    /**
+     * ===== ĐẾM DÒNG =====
+     */
     public static function numRows(string $sql): int {
         $result = self::query($sql);
         return $result ? pg_num_rows($result) : 0;
     }
 
+    /**
+     * ===== ĐÓNG KẾT NỐI =====
+     */
     public static function close(): void {
         if (self::$conn) {
             @pg_close(self::$conn);
@@ -73,7 +95,9 @@ class DB {
         }
     }
 
-    // ===== LẤY CẤU HÌNH SITE =====
+    /**
+     * ===== LẤY GIÁ TRỊ CẤU HÌNH SITE =====
+     */
     public function site(string $key): ?string {
         $conn = self::connect();
         $key_safe = pg_escape_string($conn, $key);
@@ -81,12 +105,16 @@ class DB {
         return $result['value'] ?? null;
     }
 
-    // ===== HÀM TƯƠNG THÍCH =====
+    /**
+     * ===== HÀM TƯƠNG THÍCH (CMSNT CŨ) =====
+     */
     public function get_row(string $sql) { return $this->fetch($sql); }
     public function get_rows(string $sql) { return $this->fetchAll($sql); }
     public function get_list(string $sql) { return $this->fetchAll($sql); }
 
-    // ===== UPDATE DATA =====
+    /**
+     * ===== UPDATE DATA =====
+     */
     public function update($table, $data = [], $where = '') {
         $conn = self::connect();
         $sets = [];
@@ -96,10 +124,16 @@ class DB {
             $sets[] = "\"{$key}\" = '{$val}'";
         }
         $sql = "UPDATE \"{$table}\" SET " . implode(", ", $sets) . " {$where}";
-        return @pg_query($conn, $sql);
+        $result = @pg_query($conn, $sql);
+        if (!$result) {
+            error_log("❌ Update failed: " . pg_last_error($conn));
+        }
+        return $result;
     }
 
-    // ===== INSERT DATA =====
+    /**
+     * ===== INSERT DATA =====
+     */
     public function insert($table, $data = []) {
         $conn = self::connect();
         $cols = [];
@@ -109,10 +143,16 @@ class DB {
             $vals[] = "'" . pg_escape_string($conn, $v) . "'";
         }
         $sql = "INSERT INTO \"{$table}\" (" . implode(",", $cols) . ") VALUES (" . implode(",", $vals) . ")";
-        return @pg_query($conn, $sql);
+        $result = @pg_query($conn, $sql);
+        if (!$result) {
+            error_log("❌ Insert failed: " . pg_last_error($conn));
+        }
+        return $result;
     }
 
-    // ===== ESCAPE STRING (chống SQL injection) =====
+    /**
+     * ===== ESCAPE STRING =====
+     */
     public function escape($string) {
         $conn = self::connect();
         return pg_escape_string($conn, $string);
