@@ -6,6 +6,10 @@ ini_set('display_errors', 0);
 ini_set('display_startup_errors', 0);
 error_reporting(0);
 
+// ⚙️ Ghi log lỗi ra file để kiểm tra lỗi 500
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/php_error.log');
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -55,7 +59,14 @@ if (in_array($action, $blocked_actions) || preg_match('/[^a-zA-Z0-9_\-]/', $acti
 // ==================== Xử lý ref click ====================
 if ($ref) {
     try {
-        $ref_safe = $CMSNT->escape($ref);
+        // ⚠️ Đảm bảo có hàm escape (nếu chưa có trong helper thì thêm)
+        if (method_exists($CMSNT, 'escape')) {
+            $ref_safe = $CMSNT->escape($ref);
+        } else {
+            $conn_ref = $CMSNT->connect();
+            $ref_safe = pg_escape_string($conn_ref, $ref);
+        }
+
         $domain_row = $CMSNT->get_row("SELECT user_id FROM domains WHERE domain = '$ref_safe' LIMIT 1");
         if (!empty($domain_row['user_id'])) {
             $user_id = (int)$domain_row['user_id'];
@@ -106,3 +117,4 @@ if (!file_exists($ping_file) || ($now - @filemtime($ping_file)) > $ping_interval
 unset($CMSNT, $conn, $module, $action, $ref, $view);
 gc_collect_cycles();
 ob_end_flush();
+?>
