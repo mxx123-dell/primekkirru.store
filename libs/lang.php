@@ -1,22 +1,36 @@
-<?php
+<?php 
 if (!defined('IN_SITE')) {
     die('The Request Not Found');
 }
+
+/*
+|--------------------------------------------------------------------------
+| ⚙️ LANG HELPER — Dịch ngôn ngữ (CMSNT)
+|---------------------------------------------------------------
+| - Tự động lấy ngôn ngữ mặc định hoặc cookie người dùng.
+| - An toàn: có kiểm tra $CMSNT, tránh lỗi nếu DB chưa khởi tạo.
+| - Không làm chậm site nếu bảng translate trống.
+*/
 
 // ====== Đặt ngôn ngữ ======
 if (!function_exists('setLanguage')) {
     function setLanguage($id)
     {
         global $CMSNT;
-        if (!$CMSNT) return false;
+        if (!isset($CMSNT) || !is_object($CMSNT)) {
+            return false;
+        }
 
         try {
-            $row = $CMSNT->get_row("SELECT * FROM `languages` WHERE `id` = '" . check_string($id) . "' AND `status` = 1");
+            $id_safe = check_string($id);
+            $row = $CMSNT->get_row("SELECT * FROM `languages` WHERE `id` = '{$id_safe}' AND `status` = 1 LIMIT 1");
             if ($row) {
-                return setcookie('language', $row['lang'], time() + 31536000, "/"); // lưu 1 năm
+                setcookie('language', $row['lang'], time() + 31536000, "/", "", false, true); // lưu 1 năm
+                $_COOKIE['language'] = $row['lang'];
+                return true;
             }
         } catch (Throwable $e) {
-            error_log('setLanguage error: ' . $e->getMessage());
+            error_log('[setLanguage] ' . $e->getMessage());
         }
         return false;
     }
@@ -27,63 +41,72 @@ if (!function_exists('getLanguage')) {
     function getLanguage()
     {
         global $CMSNT;
-        if (!$CMSNT) return 'en';
+        if (!isset($CMSNT) || !is_object($CMSNT)) {
+            return 'vi'; // fallback an toàn
+        }
 
         try {
-            // Nếu đã chọn cookie
+            // Nếu có cookie đã lưu
             if (!empty($_COOKIE['language'])) {
-                $language = check_string($_COOKIE['language']);
-                $rowLang = $CMSNT->get_row("SELECT * FROM `languages` WHERE `lang` = '$language' AND `status` = 1");
+                $lang = check_string($_COOKIE['language']);
+                $rowLang = $CMSNT->get_row("SELECT * FROM `languages` WHERE `lang` = '{$lang}' AND `status` = 1 LIMIT 1");
                 if ($rowLang) {
                     return $rowLang['lang'];
                 }
             }
 
-            // Nếu chưa chọn, lấy mặc định
-            $rowLang = $CMSNT->get_row("SELECT * FROM `languages` WHERE `lang_default` = 1");
+            // Nếu chưa chọn, lấy ngôn ngữ mặc định
+            $rowLang = $CMSNT->get_row("SELECT * FROM `languages` WHERE `lang_default` = 1 LIMIT 1");
             if ($rowLang) {
                 return $rowLang['lang'];
             }
         } catch (Throwable $e) {
-            error_log('getLanguage error: ' . $e->getMessage());
+            error_log('[getLanguage] ' . $e->getMessage());
         }
 
-        return 'en';
+        return 'vi';
     }
 }
 
 // ====== Dịch chuỗi ======
 if (!function_exists('__')) {
-    function __($name)
+    function __($text)
     {
         global $CMSNT;
-        if (!$CMSNT) return $name;
+
+        // Nếu DB chưa sẵn, trả nguyên văn
+        if (!isset($CMSNT) || !is_object($CMSNT)) {
+            return $text;
+        }
 
         try {
             $language = $_COOKIE['language'] ?? getLanguage();
+            $lang_safe = check_string($language);
+            $name_safe = check_string($text);
 
-            // Kiểm tra bản dịch trong ngôn ngữ hiện tại
-            $rowLang = $CMSNT->get_row("SELECT * FROM `languages` WHERE `lang` = '" . check_string($language) . "' AND `status` = 1");
+            // 🔍 Dịch theo ngôn ngữ hiện tại
+            $rowLang = $CMSNT->get_row("SELECT * FROM `languages` WHERE `lang` = '{$lang_safe}' AND `status` = 1 LIMIT 1");
             if ($rowLang) {
-                $rowTran = $CMSNT->get_row("SELECT * FROM `translate` WHERE `lang_id` = '" . $rowLang['id'] . "' AND `name` = '" . check_string($name) . "'");
+                $rowTran = $CMSNT->get_row("SELECT * FROM `translate` WHERE `lang_id` = '{$rowLang['id']}' AND `name` = '{$name_safe}' LIMIT 1");
                 if (!empty($rowTran['value'])) {
                     return $rowTran['value'];
                 }
             }
 
-            // Nếu chưa có, fallback về ngôn ngữ mặc định
-            $rowDefault = $CMSNT->get_row("SELECT * FROM `languages` WHERE `lang_default` = 1");
+            // 🔁 Fallback sang ngôn ngữ mặc định
+            $rowDefault = $CMSNT->get_row("SELECT * FROM `languages` WHERE `lang_default` = 1 LIMIT 1");
             if ($rowDefault) {
-                $rowTran = $CMSNT->get_row("SELECT * FROM `translate` WHERE `lang_id` = '" . $rowDefault['id'] . "' AND `name` = '" . check_string($name) . "'");
+                $rowTran = $CMSNT->get_row("SELECT * FROM `translate` WHERE `lang_id` = '{$rowDefault['id']}' AND `name` = '{$name_safe}' LIMIT 1");
                 if (!empty($rowTran['value'])) {
                     return $rowTran['value'];
                 }
             }
+
         } catch (Throwable $e) {
-            error_log('__() error: ' . $e->getMessage());
+            error_log('[__()] ' . $e->getMessage());
         }
 
-        return $name;
+        return $text; // nếu không có bản dịch
     }
 }
 ?>
