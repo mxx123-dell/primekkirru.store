@@ -1,15 +1,33 @@
-<?php  
+<?php
 if (!defined('IN_SITE')) {
     die('The Request Not Found');
 }
 
+// ✅ Load file hệ thống nếu chưa có $CMSNT
+if (!isset($CMSNT) && file_exists(__DIR__ . '/../../../libs/db.php')) {
+    require_once __DIR__ . '/../../../libs/db.php';
+}
+if (!isset($CMSNT) && file_exists(__DIR__ . '/../../../libs/helper.php')) {
+    require_once __DIR__ . '/../../../libs/helper.php';
+}
+
+// ✅ Hàm lấy URL hiện tại
 if (!function_exists('get_url')) {
     function get_url() {
-        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || 
-                     (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443))
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ||
+                    (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443))
             ? "https://" : "http://";
         return $protocol . ($_SERVER['HTTP_HOST'] ?? '') . ($_SERVER['REQUEST_URI'] ?? '');
     }
+}
+
+// ✅ Lấy giá trị site an toàn (tránh lỗi khi $CMSNT chưa tồn tại)
+function safe_site($key, $default = '') {
+    global $CMSNT;
+    if (isset($CMSNT) && method_exists($CMSNT, 'site')) {
+        return $CMSNT->site($key) ?? $default;
+    }
+    return $default;
 }
 ?>
 <!doctype html>
@@ -17,7 +35,7 @@ if (!function_exists('get_url')) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= htmlspecialchars($body['title'] ?? site('title') ?? 'Shop'); ?></title>
+<title><?= htmlspecialchars($body['title'] ?? safe_site('title', 'Shop Auto')); ?></title>
 
 <!-- ✅ CSS chính -->
 <link rel="stylesheet" href="<?= BASE_URL('assets/css/all.min.css'); ?>">
@@ -26,7 +44,10 @@ if (!function_exists('get_url')) {
 <link rel="stylesheet" href="<?= BASE_URL('assets/css/style.css'); ?>">
 
 <!-- ✅ FontAwesome -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-/D+nZQ7z8A1qEUdF8YoEfY9sN2I64ZT9+8l8kCS4tmHuWAh5K+7nQe4+R03q1HkMJ6QvRVKZr8D8bT0M3Q9u9Q==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+      integrity="sha512-/D+nZQ7z8A1qEUdF8YoEfY9sN2I64ZT9+8l8kCS4tmHuWAh5K+7nQe4+R03q1HkMJ6QvRVKZr8D8bT0M3Q9u9Q=="
+      crossorigin="anonymous" referrerpolicy="no-referrer" />
 
 </head>
 <body>
@@ -36,7 +57,8 @@ if (!function_exists('get_url')) {
         <div class="container d-flex justify-content-between align-items-center">
             <div class="logo">
                 <a href="<?= BASE_URL(''); ?>">
-                    <img src="<?= BASE_URL($CMSNT->site('logo_dark') ?: 'assets/img/logo.png'); ?>" alt="logo" style="height:60px;">
+                    <img src="<?= BASE_URL(safe_site('logo_dark', 'assets/img/logo.png')); ?>" 
+                         alt="logo" style="height:60px;">
                 </a>
             </div>
             <div class="search">
@@ -45,7 +67,6 @@ if (!function_exists('get_url')) {
                 </form>
             </div>
             <div class="user-actions">
-                <!-- cart / user icons -->
                 <a href="<?= BASE_URL('client/cart'); ?>" class="btn btn-sm"><i class="fas fa-shopping-cart"></i></a>
                 <?php if(isset($_SESSION['login'])): ?>
                     <a href="<?= BASE_URL('client/profile'); ?>" class="btn btn-sm">
