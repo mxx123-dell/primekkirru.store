@@ -2,8 +2,10 @@
 if (!defined('IN_SITE')) {
     die('The Request Not Found');
 }
+
 require_once(__DIR__ . '/../../../libs/helper.php');
 require_once(__DIR__ . '/../../../libs/lang.php');
+global $CMSNT;
 ?>
 
 <div class="sidebar">
@@ -26,7 +28,7 @@ require_once(__DIR__ . '/../../../libs/lang.php');
             // --- Lấy danh mục sản phẩm ---
             $categories = [];
             try {
-                if ($CMSNT) {
+                if (isset($CMSNT)) {
                     $categories = $CMSNT->get_list("SELECT * FROM categories WHERE status = 1 ORDER BY stt ASC");
                 }
             } catch (Throwable $e) {
@@ -36,7 +38,7 @@ require_once(__DIR__ . '/../../../libs/lang.php');
             if (!empty($categories)):
                 foreach ($categories as $cat): ?>
                     <li class="nav-item">
-                        <a class="nav-link" href="<?= BASE_URL('category/' . $cat['slug']); ?>">
+                        <a class="nav-link" href="<?= BASE_URL('category/' . htmlspecialchars($cat['slug'])); ?>">
                             <i class="fas fa-box"></i> <?= htmlspecialchars($cat['name']); ?>
                         </a>
                     </li>
@@ -101,8 +103,9 @@ require_once(__DIR__ . '/../../../libs/lang.php');
                 ?>
             </select>
         </form>
+
         <div class="mt-3 small text-muted text-center">
-            <strong><?= site('title') ?: 'CMSNT.CO'; ?></strong><br>
+            <strong><?= htmlspecialchars($CMSNT->site('title') ?? 'CMSNT.CO'); ?></strong><br>
             <?= date('Y'); ?> &copy; All Rights Reserved
         </div>
     </div>
